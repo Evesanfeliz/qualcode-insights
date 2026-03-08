@@ -391,8 +391,8 @@ const CodingWorkspace = () => {
               </div>
             </ScrollArea>
           </div>
-        </Panel>
-      </PanelGroup>
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 };
