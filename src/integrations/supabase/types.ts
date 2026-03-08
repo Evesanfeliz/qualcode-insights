@@ -14,6 +14,108 @@ export type Database = {
   }
   public: {
     Tables: {
+      code_applications: {
+        Row: {
+          applied_by: string
+          code_id: string
+          created_at: string | null
+          end_index: number
+          id: string
+          note: string | null
+          segment_text: string
+          start_index: number
+          transcript_id: string
+        }
+        Insert: {
+          applied_by: string
+          code_id: string
+          created_at?: string | null
+          end_index: number
+          id?: string
+          note?: string | null
+          segment_text: string
+          start_index: number
+          transcript_id: string
+        }
+        Update: {
+          applied_by?: string
+          code_id?: string
+          created_at?: string | null
+          end_index?: number
+          id?: string
+          note?: string | null
+          segment_text?: string
+          start_index?: number
+          transcript_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "code_applications_code_id_fkey"
+            columns: ["code_id"]
+            isOneToOne: false
+            referencedRelation: "codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "code_applications_transcript_id_fkey"
+            columns: ["transcript_id"]
+            isOneToOne: false
+            referencedRelation: "transcripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      codes: {
+        Row: {
+          ai_suggested: boolean | null
+          color: string | null
+          created_at: string | null
+          cycle: string | null
+          id: string
+          label: string
+          parent_code_id: string | null
+          project_id: string
+          researcher_confirmed: boolean | null
+        }
+        Insert: {
+          ai_suggested?: boolean | null
+          color?: string | null
+          created_at?: string | null
+          cycle?: string | null
+          id?: string
+          label: string
+          parent_code_id?: string | null
+          project_id: string
+          researcher_confirmed?: boolean | null
+        }
+        Update: {
+          ai_suggested?: boolean | null
+          color?: string | null
+          created_at?: string | null
+          cycle?: string | null
+          id?: string
+          label?: string
+          parent_code_id?: string | null
+          project_id?: string
+          researcher_confirmed?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "codes_parent_code_id_fkey"
+            columns: ["parent_code_id"]
+            isOneToOne: false
+            referencedRelation: "codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "codes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_members: {
         Row: {
           color_theme: string | null
@@ -87,6 +189,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      transcripts: {
+        Row: {
+          assigned_to: string | null
+          content: string
+          created_at: string | null
+          file_url: string | null
+          id: string
+          interview_date: string | null
+          participant_pseudonym: string
+          project_id: string
+          status: string | null
+          word_count: number | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          content?: string
+          created_at?: string | null
+          file_url?: string | null
+          id?: string
+          interview_date?: string | null
+          participant_pseudonym: string
+          project_id: string
+          status?: string | null
+          word_count?: number | null
+        }
+        Update: {
+          assigned_to?: string | null
+          content?: string
+          created_at?: string | null
+          file_url?: string | null
+          id?: string
+          interview_date?: string | null
+          participant_pseudonym?: string
+          project_id?: string
+          status?: string | null
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcripts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
