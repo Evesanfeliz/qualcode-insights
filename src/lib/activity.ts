@@ -7,11 +7,11 @@ export async function logActivity(
   description: string,
   metadata?: Record<string, unknown>
 ) {
-  await supabase.from("activity_log").insert({
+  await supabase.from("activity_log").insert([{
     project_id: projectId,
     user_id: userId,
     action_type: actionType,
     description,
     metadata: metadata ?? null,
-  });
+  }]);
 }
