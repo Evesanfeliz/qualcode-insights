@@ -23,10 +23,10 @@ type Memo = {
 type MemoReply = { id: string; memo_id: string; author_id: string; author_type: string; content: string; created_at: string };
 type Code = { id: string; label: string };
 
-const DEPTH_COLORS: Record<string, string> = {
-  D: "bg-muted text-muted-foreground",
-  I: "bg-amber-500/20 text-amber-700 border-amber-500/30",
-  T: "bg-accent/20 text-accent border-accent/30",
+const DEPTH_BADGE: Record<string, string> = {
+  D: "border-muted-foreground/30 text-muted-foreground",
+  I: "border-warning/40 text-warning",
+  T: "border-primary/40 text-primary",
 };
 const DEPTH_LABELS: Record<string, string> = { D: "Descriptive", I: "Interpretive", T: "Theoretical" };
 
@@ -49,7 +49,6 @@ const MemoPad = () => {
   const [memoType, setMemoType] = useState("general");
   const [replyText, setReplyText] = useState("");
 
-  // AI scoring state
   const [scoring, setScoring] = useState(false);
   const [pushQuestion, setPushQuestion] = useState<string | null>(null);
 
@@ -108,7 +107,6 @@ const MemoPad = () => {
     toast.success("Memo saved");
     loadMemos();
 
-    // Auto-score with AI if there's content
     if (bodyText.trim().length > 20) {
       scoreMemo();
     }
@@ -123,7 +121,6 @@ const MemoPad = () => {
       });
       if (error) throw error;
       if (data?.score && ["D", "I", "T"].includes(data.score)) {
-        // Save depth_score back to DB
         await supabase.from("memos").update({ depth_score: data.score }).eq("id", selectedMemoId!);
         setDepthScore(data.score);
         setPushQuestion(data.push_question || null);
@@ -146,40 +143,46 @@ const MemoPad = () => {
     loadReplies();
   };
 
-  if (authLoading || loading) return <div className="flex min-h-screen items-center justify-center bg-secondary"><p className="text-muted-foreground">Loading memos…</p></div>;
+  if (authLoading || loading) return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Loading memos…</p></div>;
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      <header className="shrink-0 border-b border-border bg-card px-4 py-3">
+      <header className="shrink-0 border-b border-border px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => navigate(`/project/${projectId}/transcripts`)}><ArrowLeft className="h-4 w-4" /></Button>
             <div>
-              <h1 className="font-heading text-base font-bold text-primary">Memo Pad</h1>
-              <p className="text-xs text-muted-foreground">{memos.length} memos</p>
+              <h1 className="font-heading text-base text-foreground">Memo Pad</h1>
+              <p className="font-mono text-[10px] text-muted-foreground">{memos.length} memos</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setFeedOpen(!feedOpen)}><Activity className="mr-1.5 h-3.5 w-3.5" />Activity</Button>
-            <Button size="sm" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={createMemo}><Plus className="mr-1.5 h-3.5 w-3.5" />New Memo</Button>
+            <Button variant="ghost" size="sm" onClick={() => setFeedOpen(!feedOpen)}><Activity className="mr-1.5 h-3.5 w-3.5" />Activity</Button>
+            <Button size="sm" onClick={createMemo}><Plus className="mr-1.5 h-3.5 w-3.5" />New Memo</Button>
           </div>
         </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left sidebar */}
-        <div className="w-72 shrink-0 border-r border-border bg-card">
+        {/* Left sidebar - 280px */}
+        <div className="w-[280px] shrink-0 border-r border-border">
           <ScrollArea className="h-full">
             <div className="space-y-0.5 p-2">
               {memos.map((memo) => {
                 const linkedCode = codes.find((c) => c.id === memo.linked_code_id);
                 return (
                   <button key={memo.id} onClick={() => setSelectedMemoId(memo.id)}
-                    className={`flex w-full flex-col gap-1 rounded-md px-3 py-2.5 text-left transition-colors ${selectedMemoId === memo.id ? "bg-accent/10 border border-accent/30" : "hover:bg-secondary"}`}>
-                    <span className="text-sm font-medium text-foreground truncate">{memo.title}</span>
+                    className={`flex w-full flex-col gap-1.5 rounded-sm px-3 py-3 text-left transition-colors ${selectedMemoId === memo.id ? "bg-secondary border-l-2 border-l-primary" : "hover:bg-secondary/50"}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-sm font-medium text-foreground truncate">{memo.title}</span>
+                      {memo.depth_score && (
+                        <span className={`shrink-0 font-mono text-[10px] font-medium ${DEPTH_BADGE[memo.depth_score]?.split(" ").pop() || "text-muted-foreground"}`}>
+                          {memo.depth_score}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1.5">
                       {linkedCode && <Badge variant="outline" className="text-[10px] px-1.5 py-0">{linkedCode.label}</Badge>}
-                      {memo.depth_score && <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${DEPTH_COLORS[memo.depth_score] || ""}`}>{memo.depth_score}</Badge>}
                       <span className="ml-auto text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(memo.updated_at), { addSuffix: true })}</span>
                     </div>
                   </button>
@@ -193,12 +196,11 @@ const MemoPad = () => {
         <div className="flex flex-1 flex-col overflow-hidden">
           {selectedMemo ? (
             <>
-              <div className="space-y-4 border-b border-border p-4">
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} className="border-0 px-0 text-lg font-heading font-semibold text-foreground shadow-none focus-visible:ring-0" placeholder="Memo title…" />
+              <div className="space-y-4 border-b border-border p-6">
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} className="border-0 px-0 font-heading text-xl text-foreground shadow-none focus-visible:ring-0" placeholder="Memo title…" />
                 <div className="flex flex-wrap items-center gap-3">
-                  {/* Depth badge */}
                   {depthScore && (
-                    <Badge variant="outline" className={`${DEPTH_COLORS[depthScore] || ""}`}>
+                    <Badge variant="outline" className={DEPTH_BADGE[depthScore] || ""}>
                       {depthScore} — {DEPTH_LABELS[depthScore] || depthScore}
                     </Badge>
                   )}
@@ -213,29 +215,30 @@ const MemoPad = () => {
                   </Select>
                   <Button size="sm" variant="outline" className="ml-auto h-7 text-xs" onClick={saveMemo}>Save</Button>
                 </div>
-                {/* Push question */}
-                {pushQuestion && (
-                  <p className="text-xs italic text-muted-foreground leading-relaxed border-l-2 border-accent/30 pl-3">
-                    💡 {pushQuestion}
-                  </p>
-                )}
               </div>
 
               <ScrollArea className="flex-1">
-                <div className="p-4">
+                <div className="p-6">
                   <Textarea value={bodyText} onChange={(e) => setBodyText(e.target.value)} rows={12} className="min-h-[200px] resize-none border-0 text-sm leading-7 shadow-none focus-visible:ring-0" placeholder="Write your memo here…" />
+
+                  {/* Push question - blockquote style with teal left border */}
+                  {pushQuestion && (
+                    <blockquote className="mt-6 border-l-2 border-primary pl-4 italic text-sm text-muted-foreground leading-relaxed">
+                      💡 {pushQuestion}
+                    </blockquote>
+                  )}
                 </div>
 
                 {/* Replies */}
-                <div className="border-t border-border p-4">
-                  <h3 className="mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Discussion</h3>
+                <div className="border-t border-border p-6">
+                  <h3 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Discussion</h3>
                   <div className="space-y-3">
                     {replies.map((r) => (
                       <div key={r.id} className="flex gap-2">
-                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-[10px] font-semibold text-accent">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-primary/30 font-mono text-[10px] font-medium text-primary">
                           {r.author_id === userId ? "A" : "B"}
                         </div>
-                        <div className="flex-1 rounded-md bg-secondary px-3 py-2">
+                        <div className="flex-1 rounded-sm border border-border bg-secondary px-3 py-2">
                           <p className="text-sm text-foreground">{r.content}</p>
                           <p className="mt-1 text-[10px] text-muted-foreground">{formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</p>
                         </div>
@@ -244,7 +247,7 @@ const MemoPad = () => {
                   </div>
                   <div className="mt-3 flex gap-2">
                     <Input value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Reply…" className="flex-1" onKeyDown={(e) => e.key === "Enter" && submitReply()} />
-                    <Button size="icon" className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={submitReply}><Send className="h-3.5 w-3.5" /></Button>
+                    <Button size="icon" onClick={submitReply}><Send className="h-3.5 w-3.5" /></Button>
                   </div>
                 </div>
               </ScrollArea>
@@ -252,7 +255,7 @@ const MemoPad = () => {
           ) : (
             <div className="flex flex-1 items-center justify-center">
               <div className="text-center">
-                <FileText className="mx-auto h-10 w-10 text-muted-foreground/30" />
+                <FileText className="mx-auto h-10 w-10 text-muted-foreground/20" />
                 <p className="mt-3 text-sm text-muted-foreground">Select a memo or create a new one</p>
               </div>
             </div>

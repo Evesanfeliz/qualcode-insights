@@ -126,30 +126,29 @@ const NewProject = () => {
   };
 
   return (
-    <div className="min-h-screen bg-secondary">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-2xl items-center gap-4 px-6 py-4">
+      <header className="border-b border-border">
+        <div className="mx-auto flex max-w-2xl items-center gap-4 px-8 py-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="font-heading text-xl font-bold text-primary">
+          <h1 className="font-heading text-xl text-foreground">
             QualCode AI
           </h1>
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-6 py-10">
-        <Card className="shadow-sm">
+      <main className="mx-auto max-w-2xl px-8 py-10">
+        <Card>
           <CardHeader>
-            <CardTitle className="font-heading text-2xl">New Project</CardTitle>
+            <CardTitle className="text-2xl">New Project</CardTitle>
             <CardDescription>
               Set up your qualitative research project
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Title */}
               <div className="space-y-2">
                 <Label htmlFor="title">Project Title *</Label>
                 <Input
@@ -161,7 +160,6 @@ const NewProject = () => {
                 />
               </div>
 
-              {/* Research Question */}
               <div className="space-y-2">
                 <Label htmlFor="research_question">Research Question</Label>
                 <Textarea
@@ -173,7 +171,6 @@ const NewProject = () => {
                 />
               </div>
 
-              {/* Approach + Reasoning Mode */}
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Analytical Approach</Label>
@@ -210,13 +207,11 @@ const NewProject = () => {
                 </div>
               </div>
 
-              {/* Domain Framework */}
               <DomainFrameworkField
                 value={form.domain_framework}
                 onChange={(val) => setForm({ ...form, domain_framework: val })}
               />
 
-              {/* Collaborator */}
               <div className="space-y-2">
                 <Label htmlFor="collaborator_email">
                   Invite Collaborator
@@ -231,18 +226,16 @@ const NewProject = () => {
                 />
               </div>
 
-              {/* Submit */}
               <div className="flex gap-3 pt-2">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   onClick={() => navigate("/dashboard")}
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  className="bg-accent text-accent-foreground hover:bg-accent/90"
                   disabled={loading}
                 >
                   {loading ? "Creating..." : "Create Project"}

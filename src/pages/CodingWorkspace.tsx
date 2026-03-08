@@ -17,10 +17,10 @@ type ProjectMember = { user_id: string; role: string | null; color_theme: string
 type Project = { id: string; research_question: string | null; domain_framework: string | null; approach: string | null };
 type AISuggestion = { label: string; justification: string; domain_connection: string; confidence: "high" | "medium" | "low" };
 
-const confidenceColor: Record<string, string> = {
-  high: "bg-accent/20 text-accent border-accent/30",
-  medium: "bg-amber-500/20 text-amber-700 border-amber-500/30",
-  low: "bg-muted text-muted-foreground border-border",
+const confidenceBadge: Record<string, string> = {
+  high: "border-primary/40 text-primary",
+  medium: "border-warning/40 text-warning",
+  low: "border-muted-foreground/30 text-muted-foreground",
 };
 
 const CodingWorkspace = () => {
@@ -79,9 +79,16 @@ const CodingWorkspace = () => {
 
   const getHighlightColor = (userId: string) => {
     const memberIdx = members.findIndex((m) => m.user_id === userId);
-    if (memberIdx === 0) return "rgba(10, 124, 110, 0.3)";
-    if (memberIdx === 1) return "rgba(61, 78, 138, 0.3)";
-    return "rgba(10, 124, 110, 0.3)";
+    if (memberIdx === 0) return "rgba(14, 158, 138, 0.2)";
+    if (memberIdx === 1) return "rgba(74, 108, 247, 0.2)";
+    return "rgba(14, 158, 138, 0.2)";
+  };
+
+  const getHighlightBorder = (userId: string) => {
+    const memberIdx = members.findIndex((m) => m.user_id === userId);
+    if (memberIdx === 0) return "#0E9E8A";
+    if (memberIdx === 1) return "#4A6CF7";
+    return "#0E9E8A";
   };
 
   const renderedContent = useMemo(() => {
@@ -95,7 +102,16 @@ const CodingWorkspace = () => {
       if (app.start_index > cursor) parts.push(text.slice(cursor, app.start_index));
       const codeLabel = codes.find((c) => c.id === app.code_id)?.label || "?";
       parts.push(
-        <mark key={app.id} style={{ backgroundColor: getHighlightColor(app.applied_by) }} className="rounded-sm px-0.5" title={`${codeLabel} — "${app.segment_text}"`}>
+        <mark
+          key={app.id}
+          style={{
+            backgroundColor: getHighlightColor(app.applied_by),
+            borderLeft: `2px solid ${getHighlightBorder(app.applied_by)}`,
+            paddingLeft: "4px",
+          }}
+          className="rounded-none"
+          title={`${codeLabel} — "${app.segment_text}"`}
+        >
           {text.slice(app.start_index, app.end_index)}
         </mark>
       );
@@ -130,7 +146,6 @@ const CodingWorkspace = () => {
     setAiLoading(true);
     setAiSuggestions([]);
     try {
-      // Get surrounding context (3 lines before/after)
       const text = transcript.content;
       const beforeText = text.slice(Math.max(0, selection.start - 300), selection.start);
       const afterText = text.slice(selection.end, Math.min(text.length, selection.end + 300));
@@ -201,23 +216,26 @@ const CodingWorkspace = () => {
       const codeLabel = codes.find((c) => c.id === codeId)?.label || "";
       if (title.startsWith(codeLabel)) {
         mark.scrollIntoView({ behavior: "smooth", block: "center" });
-        mark.style.outline = "2px solid hsl(var(--accent))";
+        mark.style.outline = "2px solid hsl(var(--primary))";
         setTimeout(() => { mark.style.outline = "none"; }, 1500);
         break;
       }
     }
   };
 
-  if (loading) return <div className="flex min-h-screen items-center justify-center bg-secondary"><p className="text-muted-foreground">Loading workspace…</p></div>;
-  if (!transcript) return <div className="flex min-h-screen items-center justify-center bg-secondary"><p className="text-muted-foreground">Transcript not found.</p></div>;
+  if (loading) return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Loading workspace…</p></div>;
+  if (!transcript) return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Transcript not found.</p></div>;
+
+  // Generate line numbers
+  const lines = transcript.content.split("\n");
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      <header className="shrink-0 border-b border-border bg-card px-4 py-3">
+      <header className="shrink-0 border-b border-border px-4 py-3">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate(`/project/${projectId}/transcripts`)}><ArrowLeft className="h-4 w-4" /></Button>
           <div>
-            <h1 className="font-heading text-base font-bold text-primary">Coding Workspace</h1>
+            <h1 className="font-heading text-base text-foreground">Coding Workspace</h1>
             <p className="text-xs text-muted-foreground">{transcript.participant_pseudonym}</p>
           </div>
         </div>
@@ -227,15 +245,19 @@ const CodingWorkspace = () => {
         <ResizablePanel defaultSize={60} minSize={40}>
           <ScrollArea className="h-full">
             <div className="relative p-6">
-              <div ref={contentRef} className="whitespace-pre-wrap text-sm leading-7 text-foreground selection:bg-accent/20" onMouseUp={handleMouseUp}>
+              <div
+                ref={contentRef}
+                className="whitespace-pre-wrap font-mono text-[13px] leading-7 text-foreground selection:bg-primary/20"
+                onMouseUp={handleMouseUp}
+              >
                 {renderedContent}
               </div>
 
               {/* Floating popover */}
               {popoverOpen && popoverPos && (
                 <div className="fixed z-50" style={{ left: Math.max(10, popoverPos.x - 150), top: Math.max(10, popoverPos.y - (aiSuggestions.length > 0 ? 420 : 200)) }}>
-                  <div className="w-[300px] rounded-lg border border-border bg-card p-4 shadow-lg">
-                    <p className="mb-3 text-xs font-medium text-muted-foreground">Apply code to selection</p>
+                  <div className="w-[300px] rounded-none border border-primary bg-popover p-4">
+                    <p className="mb-3 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Apply code to selection</p>
                     <div className="space-y-3">
                       <Input placeholder="New code name..." value={newCodeLabel} onChange={(e) => { setNewCodeLabel(e.target.value); if (e.target.value) setSelectedCodeId(""); }} className="h-8 text-sm" />
                       <div className="flex items-center gap-2">
@@ -246,28 +268,28 @@ const CodingWorkspace = () => {
                         </Select>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="flex-1" onClick={() => { setPopoverOpen(false); setSelection(null); setAiSuggestions([]); window.getSelection()?.removeAllRanges(); }}>Cancel</Button>
+                        <Button size="sm" variant="ghost" className="flex-1" onClick={() => { setPopoverOpen(false); setSelection(null); setAiSuggestions([]); window.getSelection()?.removeAllRanges(); }}>Cancel</Button>
                         <Button size="sm" variant="outline" className="gap-1" onClick={askAI} disabled={aiLoading}>
                           {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                           Ask AI
                         </Button>
-                        <Button size="sm" className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90" onClick={applyCode}>Apply</Button>
+                        <Button size="sm" className="flex-1" onClick={applyCode}>Apply</Button>
                       </div>
                     </div>
 
                     {/* AI Suggestions */}
                     {aiSuggestions.length > 0 && (
                       <div className="mt-3 space-y-2 border-t border-border pt-3">
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">AI Suggestions</p>
+                        <p className="font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">AI Suggestions</p>
                         {aiSuggestions.map((s, i) => (
                           <button
                             key={i}
-                            className="w-full rounded-md border border-border bg-secondary/50 p-2.5 text-left transition-colors hover:bg-secondary"
+                            className="w-full rounded-sm border border-border bg-secondary/50 p-2.5 text-left transition-colors hover:bg-secondary"
                             onClick={() => { setNewCodeLabel(s.label); setSelectedCodeId(""); }}
                           >
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-sm font-medium text-foreground">{s.label}</span>
-                              <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${confidenceColor[s.confidence]}`}>{s.confidence}</Badge>
+                              <Badge variant="outline" className={`${confidenceBadge[s.confidence]}`}>{s.confidence}</Badge>
                             </div>
                             <p className="text-xs text-muted-foreground leading-relaxed">{s.justification}</p>
                           </button>
@@ -291,19 +313,19 @@ const CodingWorkspace = () => {
 
         <ResizablePanel defaultSize={40} minSize={25}>
           <div className="flex h-full flex-col border-l border-border bg-card">
-            <div className="border-b border-border px-4 py-3">
-              <h2 className="font-heading text-sm font-semibold text-foreground">Codes</h2>
-              <p className="text-xs text-muted-foreground">{codes.length} codes · {applications.length} applications</p>
+            <div className="border-b border-border px-6 py-4">
+              <h2 className="font-heading text-sm text-foreground">Codes</h2>
+              <p className="font-mono text-[10px] text-muted-foreground">{codes.length} codes · {applications.length} applications</p>
             </div>
             <ScrollArea className="flex-1">
-              <div className="p-4 space-y-1">
+              <div className="p-4 space-y-0.5">
                 {codes.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-8 text-center">No codes yet. Select text to create your first code.</p>
                 ) : codes.map((code) => (
-                  <button key={code.id} onClick={() => scrollToCode(code.id)} className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-secondary">
-                    <Hash className="h-3.5 w-3.5 shrink-0 text-accent" />
+                  <button key={code.id} onClick={() => scrollToCode(code.id)} className="flex w-full items-center gap-3 rounded-sm px-3 py-2 text-left text-sm transition-colors hover:bg-secondary">
+                    <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: code.color || "hsl(var(--primary))" }} />
                     <span className="flex-1 truncate text-foreground">{code.label}</span>
-                    <Badge variant="secondary" className="text-xs tabular-nums">{codeFrequency[code.id] || 0}</Badge>
+                    <span className="font-mono text-[10px] text-muted-foreground tabular-nums">{codeFrequency[code.id] || 0}</span>
                   </button>
                 ))}
               </div>
