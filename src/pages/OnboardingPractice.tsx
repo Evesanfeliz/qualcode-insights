@@ -265,7 +265,7 @@ const OnboardingPractice = () => {
                     <div key={i} className="font-mono text-[11px] leading-7 text-muted-foreground/40">{i + 1}</div>
                   ))}
                 </div>
-                <div className="flex-1 p-6">
+                <div className="flex-1 p-6 pb-52">
                   <div
                     ref={contentRef}
                     className="whitespace-pre-wrap font-mono text-[13px] leading-7"
