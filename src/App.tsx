@@ -27,6 +27,8 @@ const App = () => (
           <Route path="/project/new" element={<NewProject />} />
           <Route path="/project/:projectId/transcripts" element={<TranscriptManager />} />
           <Route path="/project/:projectId/code/:transcriptId" element={<CodingWorkspace />} />
+          <Route path="/project/:projectId/codebook" element={<Codebook />} />
+          <Route path="/project/:projectId/memos" element={<MemoPad />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

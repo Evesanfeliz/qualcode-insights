@@ -271,7 +271,7 @@ const Codebook = () => {
                         onChange={(e) => setEditState((s) => ({ ...s, example_quote: e.target.value }))}
                         rows={2}
                         className="text-sm"
-                        placeholder=""Verbatim excerpt…""
+                        placeholder="Verbatim excerpt..."
                       />
                     </div>
                     <div className="flex justify-end">
