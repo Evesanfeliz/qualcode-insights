@@ -14,3 +14,12 @@ verify_jwt = false
 
 [functions.ai-extract-literature]
 verify_jwt = false
+
+[functions.ai-emerge-theory]
+verify_jwt = false
+
+[functions.ai-rival-challenge]
+verify_jwt = false
+
+[functions.ai-literature-bridge]
+verify_jwt = false
