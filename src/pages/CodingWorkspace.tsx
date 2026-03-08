@@ -352,7 +352,7 @@ const CodingWorkspace = () => {
         </ResizablePanel>
 
         {/* Resize Handle */}
-        <PanelResizeHandle className="w-1 bg-border hover:bg-accent/30 transition-colors" />
+        <ResizableHandle />
 
         {/* Right: Code Panel */}
         <Panel defaultSize={40} minSize={25}>
