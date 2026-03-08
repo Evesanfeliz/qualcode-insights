@@ -157,6 +157,16 @@ const TranscriptManager = () => {
             </h1>
             <p className="text-sm text-muted-foreground">Transcript Manager</p>
           </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate(`/project/${projectId}/codebook`)}>
+              <BookOpen className="mr-1.5 h-3.5 w-3.5" />
+              Codebook
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/project/${projectId}/memos`)}>
+              <StickyNote className="mr-1.5 h-3.5 w-3.5" />
+              Memos
+            </Button>
+          </div>
         </div>
       </header>
 
