@@ -8,6 +8,8 @@ import Dashboard from "./pages/Dashboard";
 import NewProject from "./pages/NewProject";
 import TranscriptManager from "./pages/TranscriptManager";
 import CodingWorkspace from "./pages/CodingWorkspace";
+import Codebook from "./pages/Codebook";
+import MemoPad from "./pages/MemoPad";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
