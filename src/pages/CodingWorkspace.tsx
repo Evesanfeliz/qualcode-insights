@@ -9,7 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ArrowLeft, Hash } from "lucide-react";
 import { toast } from "sonner";
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 
 type Transcript = {
   id: string;
