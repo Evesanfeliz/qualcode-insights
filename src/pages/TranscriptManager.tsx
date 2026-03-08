@@ -336,6 +336,7 @@ const TranscriptManager = () => {
           </div>
         )}
       </main>
+      <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );
 };
