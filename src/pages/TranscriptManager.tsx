@@ -172,6 +172,10 @@ const TranscriptManager = () => {
               <BookMarked className="mr-1.5 h-3.5 w-3.5" />
               Literature
             </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/theory`)}>
+              <Lightbulb className="mr-1.5 h-3.5 w-3.5" />
+              Theory
+            </Button>
           </div>
         </div>
       </header>
