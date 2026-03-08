@@ -168,6 +168,10 @@ const TranscriptManager = () => {
               <StickyNote className="mr-1.5 h-3.5 w-3.5" />
               Memos
             </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/literature`)}>
+              <BookMarked className="mr-1.5 h-3.5 w-3.5" />
+              Literature
+            </Button>
           </div>
         </div>
       </header>

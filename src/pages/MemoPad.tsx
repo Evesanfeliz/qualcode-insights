@@ -5,6 +5,7 @@ import { useProjectRealtime, useTableRealtime } from "@/hooks/useProjectRealtime
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { logActivity } from "@/lib/activity";
 import { ActivityFeed } from "@/components/ActivityFeed";
+import { SocraticChallenge } from "@/components/SocraticChallenge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,6 +42,7 @@ const MemoPad = () => {
   const [codes, setCodes] = useState<Code[]>([]);
   const [feedOpen, setFeedOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isSaved, setIsSaved] = useState(false);
 
   const [title, setTitle] = useState("");
   const [bodyText, setBodyText] = useState("");
@@ -85,6 +87,7 @@ const MemoPad = () => {
       setLinkedCodeId(selectedMemo.linked_code_id ?? "");
       setMemoType(selectedMemo.memo_type ?? "general");
       setPushQuestion(null);
+      setIsSaved(true);
     }
   }, [selectedMemoId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -94,6 +97,7 @@ const MemoPad = () => {
     if (error) { toast.error(error.message); return; }
     await logActivity(projectId, userId, "memo_written", "Created a new memo");
     setSelectedMemoId((data as Memo).id);
+    setIsSaved(false);
     loadMemos();
   };
 
@@ -105,6 +109,7 @@ const MemoPad = () => {
     }).eq("id", selectedMemoId);
     if (error) { toast.error(error.message); return; }
     toast.success("Memo saved");
+    setIsSaved(true);
     loadMemos();
 
     if (bodyText.trim().length > 20) {
@@ -164,7 +169,6 @@ const MemoPad = () => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left sidebar - 280px */}
         <div className="w-[280px] shrink-0 border-r border-border">
           <ScrollArea className="h-full">
             <div className="space-y-0.5 p-2">
@@ -192,12 +196,11 @@ const MemoPad = () => {
           </ScrollArea>
         </div>
 
-        {/* Main editor */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {selectedMemo ? (
             <>
               <div className="space-y-4 border-b border-border p-6">
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} className="border-0 px-0 font-heading text-xl text-foreground shadow-none focus-visible:ring-0" placeholder="Memo title…" />
+                <Input value={title} onChange={(e) => { setTitle(e.target.value); setIsSaved(false); }} className="border-0 px-0 font-heading text-xl text-foreground shadow-none focus-visible:ring-0" placeholder="Memo title…" />
                 <div className="flex flex-wrap items-center gap-3">
                   {depthScore && (
                     <Badge variant="outline" className={DEPTH_BADGE[depthScore] || ""}>
@@ -209,7 +212,7 @@ const MemoPad = () => {
                       <Loader2 className="h-3 w-3 animate-spin" /> Scoring…
                     </div>
                   )}
-                  <Select value={linkedCodeId} onValueChange={setLinkedCodeId}>
+                  <Select value={linkedCodeId} onValueChange={(v) => { setLinkedCodeId(v); setIsSaved(false); }}>
                     <SelectTrigger className="h-7 w-44 text-xs"><SelectValue placeholder="Link to code…" /></SelectTrigger>
                     <SelectContent>{codes.map((c) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}</SelectContent>
                   </Select>
@@ -219,24 +222,38 @@ const MemoPad = () => {
 
               <ScrollArea className="flex-1">
                 <div className="p-6">
-                  <Textarea value={bodyText} onChange={(e) => setBodyText(e.target.value)} rows={12} className="min-h-[200px] resize-none border-0 text-sm leading-7 shadow-none focus-visible:ring-0" placeholder="Write your memo here…" />
+                  <Textarea value={bodyText} onChange={(e) => { setBodyText(e.target.value); setIsSaved(false); }} rows={12} className="min-h-[200px] resize-none border-0 text-sm leading-7 shadow-none focus-visible:ring-0" placeholder="Write your memo here…" />
 
-                  {/* Push question - blockquote style with teal left border */}
                   {pushQuestion && (
                     <blockquote className="mt-6 border-l-2 border-primary pl-4 italic text-sm text-muted-foreground leading-relaxed">
                       💡 {pushQuestion}
                     </blockquote>
                   )}
+
+                  {/* Socratic Challenge */}
+                  {isSaved && bodyText.trim().length > 20 && (
+                    <SocraticChallenge
+                      projectId={projectId!}
+                      userId={userId}
+                      memoId={selectedMemoId!}
+                      memoTitle={title}
+                      memoContent={bodyText}
+                      onReplyAdded={loadReplies}
+                    />
+                  )}
                 </div>
 
-                {/* Replies */}
                 <div className="border-t border-border p-6">
                   <h3 className="mb-3 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Discussion</h3>
                   <div className="space-y-3">
                     {replies.map((r) => (
                       <div key={r.id} className="flex gap-2">
-                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-primary/30 font-mono text-[10px] font-medium text-primary">
-                          {r.author_id === userId ? "A" : "B"}
+                        <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border font-mono text-[10px] font-medium ${
+                          r.author_type === "claude"
+                            ? "border-accent/30 text-accent"
+                            : "border-primary/30 text-primary"
+                        }`}>
+                          {r.author_type === "claude" ? "AI" : r.author_id === userId ? "A" : "B"}
                         </div>
                         <div className="flex-1 rounded-sm border border-border bg-secondary px-3 py-2">
                           <p className="text-sm text-foreground">{r.content}</p>
