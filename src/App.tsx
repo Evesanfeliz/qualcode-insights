@@ -34,6 +34,7 @@ const App = () => (
           <Route path="/project/:projectId/memos" element={<MemoPad />} />
           <Route path="/project/:projectId/literature" element={<Literature />} />
           <Route path="/project/:projectId/theory" element={<Theory />} />
+          <Route path="/project/:projectId/canvas" element={<Canvas />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
