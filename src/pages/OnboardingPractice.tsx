@@ -147,6 +147,17 @@ const OnboardingPractice = () => {
     if (step?.action === "review") setShowAiBadge(false);
   }, [currentStep]);
 
+  useEffect(() => {
+    if (animatingSegment === null) return;
+
+    const timeout = window.setTimeout(() => {
+      const activeHighlight = contentRef.current?.querySelector("[data-active-highlight='true']");
+      activeHighlight?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+
+    return () => window.clearTimeout(timeout);
+  }, [animatingSegment]);
+
   const handleNext = async () => {
     if (currentStep < DEMO_STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
