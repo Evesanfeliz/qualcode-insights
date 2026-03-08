@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Upload, FileText, Calendar, User, BookOpen, StickyNote, BookMarked, Lightbulb, ChevronRight } from "lucide-react";
+import { ArrowLeft, Upload, FileText, Calendar, User, BookOpen, StickyNote, BookMarked, Lightbulb, Network, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -175,6 +175,10 @@ const TranscriptManager = () => {
             <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/theory`)}>
               <Lightbulb className="mr-1.5 h-3.5 w-3.5" />
               Theory
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/canvas`)}>
+              <Network className="mr-1.5 h-3.5 w-3.5" />
+              Canvas
             </Button>
           </div>
         </div>
