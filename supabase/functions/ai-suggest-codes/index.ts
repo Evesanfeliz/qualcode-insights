@@ -10,8 +10,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const MOONSHOT_API_KEY = Deno.env.get("MOONSHOT_API_KEY");
-    if (!MOONSHOT_API_KEY) throw new Error("MOONSHOT_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const {
       research_question,
@@ -39,14 +39,14 @@ Suggest 3 codes for this segment. For each, provide:
 
 Respond with JSON: {"suggestions": [{"label", "justification", "domain_connection", "confidence"}]}`;
 
-    const response = await fetch("https://api.moonshot.cn/v1/chat/completions", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${MOONSHOT_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "moonshot-v1-8k",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -58,7 +58,7 @@ Respond with JSON: {"suggestions": [{"label", "justification", "domain_connectio
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("Moonshot API error:", response.status, errText);
+      console.error("AI Gateway error:", response.status, errText);
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again shortly." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -72,12 +72,10 @@ Respond with JSON: {"suggestions": [{"label", "justification", "domain_connectio
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content;
 
-    // Parse the JSON from the response
     let parsed;
     try {
       parsed = JSON.parse(content);
     } catch {
-      // Try to extract JSON from the response
       const match = content?.match(/\{[\s\S]*\}/);
       if (match) {
         parsed = JSON.parse(match[0]);
