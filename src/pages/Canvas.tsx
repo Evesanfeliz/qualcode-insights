@@ -365,7 +365,7 @@ function CanvasInner() {
       const y = Number(tier) * 200 + 50;
       nodes.forEach((n, i) => {
         const x = 80 + i * 160;
-        updates.push(supabase.from("canvas_nodes").update({ position_x: x, position_y: y }).eq("id", n.id));
+        updates.push(supabase.from("canvas_nodes").update({ position_x: x, position_y: y }).eq("id", n.id).select());
       });
     });
     Promise.all(updates).then(() => { loadData(); toast.success("Layout applied"); });
