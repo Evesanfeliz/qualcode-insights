@@ -98,6 +98,7 @@ const OnboardingPractice = () => {
   const lines = text.split("\n");
 
   const step = DEMO_STEPS[currentStep];
+  const progressValue = ((currentStep + 1) / DEMO_STEPS.length) * 100;
 
   // Find segment position in transcript text
   const findSegmentPosition = useCallback((segText: string) => {
