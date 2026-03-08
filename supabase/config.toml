@@ -1,1 +1,16 @@
 project_id = "avjlsbikqxofivoqmeat"
+
+[functions.ai-score-memo]
+verify_jwt = false
+
+[functions.ai-suggest-codes]
+verify_jwt = false
+
+[functions.ai-consistency-audit]
+verify_jwt = false
+
+[functions.ai-socratic-challenge]
+verify_jwt = false
+
+[functions.ai-extract-literature]
+verify_jwt = false

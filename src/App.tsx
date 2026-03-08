@@ -10,6 +10,7 @@ import TranscriptManager from "./pages/TranscriptManager";
 import CodingWorkspace from "./pages/CodingWorkspace";
 import Codebook from "./pages/Codebook";
 import MemoPad from "./pages/MemoPad";
+import Literature from "./pages/Literature";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/project/:projectId/code/:transcriptId" element={<CodingWorkspace />} />
           <Route path="/project/:projectId/codebook" element={<Codebook />} />
           <Route path="/project/:projectId/memos" element={<MemoPad />} />
+          <Route path="/project/:projectId/literature" element={<Literature />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
