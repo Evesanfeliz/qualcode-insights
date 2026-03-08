@@ -360,12 +360,12 @@ function CanvasInner() {
       grouped[tier].push(n);
     });
 
-    const updates: Promise<any>[] = [];
+    const updates: PromiseLike<any>[] = [];
     Object.entries(grouped).forEach(([tier, nodes]) => {
       const y = Number(tier) * 200 + 50;
       nodes.forEach((n, i) => {
         const x = 80 + i * 160;
-        updates.push(supabase.from("canvas_nodes").update({ position_x: x, position_y: y }).eq("id", n.id).select());
+        updates.push(supabase.from("canvas_nodes").update({ position_x: x, position_y: y }).eq("id", n.id) as PromiseLike<any>);
       });
     });
     Promise.all(updates).then(() => { loadData(); toast.success("Layout applied"); });
