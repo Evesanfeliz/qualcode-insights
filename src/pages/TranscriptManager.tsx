@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Upload, FileText, Calendar, User } from "lucide-react";
+import { ArrowLeft, Upload, FileText, Calendar, User, BookOpen, StickyNote } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
