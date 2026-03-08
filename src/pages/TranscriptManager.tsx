@@ -52,6 +52,7 @@ const TranscriptManager = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const [newTranscript, setNewTranscript] = useState({
     pseudonym: "",
