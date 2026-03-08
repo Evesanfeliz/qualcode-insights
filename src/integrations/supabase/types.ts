@@ -14,7 +14,80 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      project_members: {
+        Row: {
+          color_theme: string | null
+          id: string
+          joined_at: string | null
+          project_id: string
+          role: string | null
+          user_id: string
+        }
+        Insert: {
+          color_theme?: string | null
+          id?: string
+          joined_at?: string | null
+          project_id: string
+          role?: string | null
+          user_id: string
+        }
+        Update: {
+          color_theme?: string | null
+          id?: string
+          joined_at?: string | null
+          project_id?: string
+          role?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_members_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          approach: string | null
+          created_at: string | null
+          domain_framework: string | null
+          id: string
+          reasoning_mode: string | null
+          research_question: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          approach?: string | null
+          created_at?: string | null
+          domain_framework?: string | null
+          id?: string
+          reasoning_mode?: string | null
+          research_question?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          approach?: string | null
+          created_at?: string | null
+          domain_framework?: string | null
+          id?: string
+          reasoning_mode?: string | null
+          research_question?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
