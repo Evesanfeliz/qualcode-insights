@@ -11,6 +11,7 @@ import CodingWorkspace from "./pages/CodingWorkspace";
 import Codebook from "./pages/Codebook";
 import MemoPad from "./pages/MemoPad";
 import Literature from "./pages/Literature";
+import Theory from "./pages/Theory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
           <Route path="/project/:projectId/codebook" element={<Codebook />} />
           <Route path="/project/:projectId/memos" element={<MemoPad />} />
           <Route path="/project/:projectId/literature" element={<Literature />} />
+          <Route path="/project/:projectId/theory" element={<Theory />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

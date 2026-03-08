@@ -232,6 +232,57 @@ export type Database = {
           },
         ]
       }
+      literature_bridges: {
+        Row: {
+          created_at: string | null
+          explanation: string | null
+          id: string
+          implication: string | null
+          literature_concept: string
+          paper_id: string | null
+          project_id: string
+          relationship_type: string | null
+          researcher_element: string
+        }
+        Insert: {
+          created_at?: string | null
+          explanation?: string | null
+          id?: string
+          implication?: string | null
+          literature_concept: string
+          paper_id?: string | null
+          project_id: string
+          relationship_type?: string | null
+          researcher_element: string
+        }
+        Update: {
+          created_at?: string | null
+          explanation?: string | null
+          id?: string
+          implication?: string | null
+          literature_concept?: string
+          paper_id?: string | null
+          project_id?: string
+          relationship_type?: string | null
+          researcher_element?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "literature_bridges_paper_id_fkey"
+            columns: ["paper_id"]
+            isOneToOne: false
+            referencedRelation: "literature_papers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "literature_bridges_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       literature_papers: {
         Row: {
           authors: string | null
@@ -463,6 +514,62 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      theory_propositions: {
+        Row: {
+          confidence: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          project_id: string
+          researcher_responses: Json | null
+          rival_evidence: Json | null
+          statement: string
+          status: string
+          supporting_codes: string[] | null
+          tensions: string | null
+          theoretical_significance: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          confidence?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          project_id: string
+          researcher_responses?: Json | null
+          rival_evidence?: Json | null
+          statement: string
+          status?: string
+          supporting_codes?: string[] | null
+          tensions?: string | null
+          theoretical_significance?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          confidence?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          project_id?: string
+          researcher_responses?: Json | null
+          rival_evidence?: Json | null
+          statement?: string
+          status?: string
+          supporting_codes?: string[] | null
+          tensions?: string | null
+          theoretical_significance?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theory_propositions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transcripts: {
         Row: {
