@@ -5,13 +5,13 @@ export async function logActivity(
   userId: string,
   actionType: string,
   description: string,
-  metadata?: Record<string, unknown>
+  metadata?: Record<string, string>
 ) {
   await supabase.from("activity_log").insert([{
     project_id: projectId,
     user_id: userId,
     action_type: actionType,
     description,
-    metadata: metadata ?? null,
+    metadata: (metadata as any) ?? null,
   }]);
 }
