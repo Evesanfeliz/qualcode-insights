@@ -355,7 +355,7 @@ const CodingWorkspace = () => {
         <ResizableHandle />
 
         {/* Right: Code Panel */}
-        <Panel defaultSize={40} minSize={25}>
+        <ResizablePanel defaultSize={40} minSize={25}>
           <div className="flex h-full flex-col border-l border-border bg-card">
             <div className="border-b border-border px-4 py-3">
               <h2 className="font-heading text-sm font-semibold text-foreground">
