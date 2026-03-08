@@ -549,6 +549,39 @@ export type Database = {
           },
         ]
       }
+      onboarding_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          practice_completed: boolean | null
+          tour_completed: boolean | null
+          tour_step_reached: number | null
+          user_id: string
+          welcome_completed: boolean | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          practice_completed?: boolean | null
+          tour_completed?: boolean | null
+          tour_step_reached?: number | null
+          user_id: string
+          welcome_completed?: boolean | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          practice_completed?: boolean | null
+          tour_completed?: boolean | null
+          tour_step_reached?: number | null
+          user_id?: string
+          welcome_completed?: boolean | null
+        }
+        Relationships: []
+      }
       project_members: {
         Row: {
           color_theme: string | null
