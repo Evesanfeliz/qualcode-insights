@@ -169,6 +169,125 @@ export type Database = {
           },
         ]
       }
+      disagreement_threads: {
+        Row: {
+          code_id: string
+          created_at: string | null
+          drift_type: string | null
+          example_a: string | null
+          example_b: string | null
+          explanation: string | null
+          id: string
+          project_id: string
+          resolved_at: string | null
+          status: string
+          suggested_resolution: string | null
+          suggestion: string | null
+          trigger_type: string
+        }
+        Insert: {
+          code_id: string
+          created_at?: string | null
+          drift_type?: string | null
+          example_a?: string | null
+          example_b?: string | null
+          explanation?: string | null
+          id?: string
+          project_id: string
+          resolved_at?: string | null
+          status?: string
+          suggested_resolution?: string | null
+          suggestion?: string | null
+          trigger_type: string
+        }
+        Update: {
+          code_id?: string
+          created_at?: string | null
+          drift_type?: string | null
+          example_a?: string | null
+          example_b?: string | null
+          explanation?: string | null
+          id?: string
+          project_id?: string
+          resolved_at?: string | null
+          status?: string
+          suggested_resolution?: string | null
+          suggestion?: string | null
+          trigger_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "disagreement_threads_code_id_fkey"
+            columns: ["code_id"]
+            isOneToOne: false
+            referencedRelation: "codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "disagreement_threads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      literature_papers: {
+        Row: {
+          authors: string | null
+          core_theoretical_concept: string | null
+          created_at: string | null
+          file_url: string | null
+          id: string
+          key_concepts: Json | null
+          main_argument: string | null
+          pdf_text_content: string | null
+          project_id: string
+          relevance_to_domain: string | null
+          theoretical_contribution: string | null
+          title: string
+          year: number | null
+        }
+        Insert: {
+          authors?: string | null
+          core_theoretical_concept?: string | null
+          created_at?: string | null
+          file_url?: string | null
+          id?: string
+          key_concepts?: Json | null
+          main_argument?: string | null
+          pdf_text_content?: string | null
+          project_id: string
+          relevance_to_domain?: string | null
+          theoretical_contribution?: string | null
+          title: string
+          year?: number | null
+        }
+        Update: {
+          authors?: string | null
+          core_theoretical_concept?: string | null
+          created_at?: string | null
+          file_url?: string | null
+          id?: string
+          key_concepts?: Json | null
+          main_argument?: string | null
+          pdf_text_content?: string | null
+          project_id?: string
+          relevance_to_domain?: string | null
+          theoretical_contribution?: string | null
+          title?: string
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "literature_papers_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memo_replies: {
         Row: {
           author_id: string
@@ -309,6 +428,7 @@ export type Database = {
           created_at: string | null
           domain_framework: string | null
           id: string
+          literature_review_text: string | null
           reasoning_mode: string | null
           research_question: string | null
           status: string | null
@@ -321,6 +441,7 @@ export type Database = {
           created_at?: string | null
           domain_framework?: string | null
           id?: string
+          literature_review_text?: string | null
           reasoning_mode?: string | null
           research_question?: string | null
           status?: string | null
@@ -333,6 +454,7 @@ export type Database = {
           created_at?: string | null
           domain_framework?: string | null
           id?: string
+          literature_review_text?: string | null
           reasoning_mode?: string | null
           research_question?: string | null
           status?: string | null
