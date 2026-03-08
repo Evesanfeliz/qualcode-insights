@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import NewProject from "./pages/NewProject";
+import TranscriptManager from "./pages/TranscriptManager";
+import CodingWorkspace from "./pages/CodingWorkspace";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
