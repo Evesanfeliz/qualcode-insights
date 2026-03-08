@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchProjects, type Project } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, LogOut, ChevronRight, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useOnboarding } from "@/hooks/useOnboarding";
+import { AppTour } from "@/components/AppTour";
 
 const statusConfig: Record<string, { dot: string; label: string }> = {
   setup: { dot: "bg-muted-foreground", label: "Setup" },
