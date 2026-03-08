@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import NewProject from "./pages/NewProject";
+import TranscriptManager from "./pages/TranscriptManager";
+import CodingWorkspace from "./pages/CodingWorkspace";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,6 +23,8 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/project/new" element={<NewProject />} />
+          <Route path="/project/:projectId/transcripts" element={<TranscriptManager />} />
+          <Route path="/project/:projectId/code/:transcriptId" element={<CodingWorkspace />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
