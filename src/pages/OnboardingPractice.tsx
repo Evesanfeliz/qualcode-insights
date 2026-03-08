@@ -213,6 +213,7 @@ const OnboardingPractice = () => {
       parts.push(
         <mark
           key={i}
+          data-active-highlight={h.isAnimating ? "true" : undefined}
           className={`rounded-sm pl-1 border-l-2 ${
             h.isAnimating
               ? "bg-primary/30 border-primary animate-pulse"
