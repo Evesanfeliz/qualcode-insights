@@ -242,7 +242,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      user_accessible_project_ids: {
+        Args: never
+        Returns: {
+          project_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
