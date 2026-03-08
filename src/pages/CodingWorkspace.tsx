@@ -268,7 +268,7 @@ const CodingWorkspace = () => {
       </header>
 
       {/* Split Pane */}
-      <PanelGroup direction="horizontal" className="flex-1">
+      <ResizablePanelGroup direction="horizontal" className="flex-1">
         {/* Left: Transcript Text */}
         <Panel defaultSize={60} minSize={40}>
           <ScrollArea className="h-full">
