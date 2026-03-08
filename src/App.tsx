@@ -12,6 +12,7 @@ import Codebook from "./pages/Codebook";
 import MemoPad from "./pages/MemoPad";
 import Literature from "./pages/Literature";
 import Theory from "./pages/Theory";
+import Canvas from "./pages/Canvas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
