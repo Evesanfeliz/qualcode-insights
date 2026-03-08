@@ -52,6 +52,117 @@ export type Database = {
           },
         ]
       }
+      canvas_edges: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          project_id: string
+          relationship: string | null
+          rival_evidence: boolean | null
+          source_node_id: string
+          target_node_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          project_id: string
+          relationship?: string | null
+          rival_evidence?: boolean | null
+          source_node_id: string
+          target_node_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          project_id?: string
+          relationship?: string | null
+          rival_evidence?: boolean | null
+          source_node_id?: string
+          target_node_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canvas_edges_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "canvas_edges_source_node_id_fkey"
+            columns: ["source_node_id"]
+            isOneToOne: false
+            referencedRelation: "canvas_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "canvas_edges_target_node_id_fkey"
+            columns: ["target_node_id"]
+            isOneToOne: false
+            referencedRelation: "canvas_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      canvas_nodes: {
+        Row: {
+          ai_generated: boolean | null
+          created_at: string | null
+          created_by: string | null
+          height: number | null
+          id: string
+          label: string
+          linked_id: string | null
+          node_type: string
+          position_x: number | null
+          position_y: number | null
+          project_id: string
+          updated_at: string | null
+          width: number | null
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          height?: number | null
+          id?: string
+          label: string
+          linked_id?: string | null
+          node_type: string
+          position_x?: number | null
+          position_y?: number | null
+          project_id: string
+          updated_at?: string | null
+          width?: number | null
+        }
+        Update: {
+          ai_generated?: boolean | null
+          created_at?: string | null
+          created_by?: string | null
+          height?: number | null
+          id?: string
+          label?: string
+          linked_id?: string | null
+          node_type?: string
+          position_x?: number | null
+          position_y?: number | null
+          project_id?: string
+          updated_at?: string | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canvas_nodes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       code_applications: {
         Row: {
           applied_by: string
