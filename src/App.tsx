@@ -13,6 +13,8 @@ import MemoPad from "./pages/MemoPad";
 import Literature from "./pages/Literature";
 import Theory from "./pages/Theory";
 import Canvas from "./pages/Canvas";
+import OnboardingWelcome from "./pages/OnboardingWelcome";
+import OnboardingPractice from "./pages/OnboardingPractice";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +28,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/onboarding/welcome" element={<OnboardingWelcome />} />
+          <Route path="/onboarding/practice" element={<OnboardingPractice />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/project/new" element={<NewProject />} />
           <Route path="/project/:projectId/transcripts" element={<TranscriptManager />} />

@@ -26,6 +26,9 @@ const Dashboard = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { progress, loading: onboardingLoading } = useOnboarding();
+  const shouldTour = searchParams.get("tour") === "true";
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -34,6 +37,29 @@ const Dashboard = () => {
         navigate("/auth");
         return;
       }
+
+      // Check onboarding
+      const { data } = await supabase
+        .from("onboarding_progress" as any)
+        .select("*")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      if (!data) {
+        navigate("/onboarding/welcome");
+        return;
+      }
+
+      const p = data as any;
+      if (!p.welcome_completed) {
+        navigate("/onboarding/welcome");
+        return;
+      }
+      if (!p.practice_completed) {
+        navigate("/onboarding/practice");
+        return;
+      }
+
       loadProjects();
     };
     checkAuth();
