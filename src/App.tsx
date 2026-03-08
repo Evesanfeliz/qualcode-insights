@@ -11,6 +11,7 @@ import CodingWorkspace from "./pages/CodingWorkspace";
 import Codebook from "./pages/Codebook";
 import MemoPad from "./pages/MemoPad";
 import Literature from "./pages/Literature";
+import Theory from "./pages/Theory";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
