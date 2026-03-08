@@ -123,6 +123,7 @@ const Dashboard = () => {
               <Card
                 key={project.id}
                 className="cursor-pointer transition-shadow hover:shadow-md"
+                onClick={() => navigate(`/project/${project.id}/transcripts`)}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
