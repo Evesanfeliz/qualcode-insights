@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { ArrowLeft, Hash, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 type Transcript = { id: string; project_id: string; participant_pseudonym: string; content: string };
@@ -36,14 +36,12 @@ const CodingWorkspace = () => {
   const [currentUserId, setCurrentUserId] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Selection state
   const [selection, setSelection] = useState<{ start: number; end: number; text: string } | null>(null);
   const [popoverPos, setPopoverPos] = useState<{ x: number; y: number } | null>(null);
   const [newCodeLabel, setNewCodeLabel] = useState("");
   const [selectedCodeId, setSelectedCodeId] = useState("");
   const [popoverOpen, setPopoverOpen] = useState(false);
 
-  // AI state
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
 
@@ -79,16 +77,16 @@ const CodingWorkspace = () => {
 
   const getHighlightColor = (userId: string) => {
     const memberIdx = members.findIndex((m) => m.user_id === userId);
-    if (memberIdx === 0) return "rgba(14, 158, 138, 0.2)";
-    if (memberIdx === 1) return "rgba(74, 108, 247, 0.2)";
-    return "rgba(14, 158, 138, 0.2)";
+    if (memberIdx === 0) return "rgba(14, 158, 138, 0.18)";
+    if (memberIdx === 1) return "rgba(74, 108, 247, 0.18)";
+    return "rgba(14, 158, 138, 0.18)";
   };
 
   const getHighlightBorder = (userId: string) => {
     const memberIdx = members.findIndex((m) => m.user_id === userId);
-    if (memberIdx === 0) return "#0E9E8A";
-    if (memberIdx === 1) return "#4A6CF7";
-    return "#0E9E8A";
+    if (memberIdx === 0) return "hsl(var(--primary))";
+    if (memberIdx === 1) return "hsl(var(--accent))";
+    return "hsl(var(--primary))";
   };
 
   const renderedContent = useMemo(() => {
@@ -226,105 +224,120 @@ const CodingWorkspace = () => {
   if (loading) return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Loading workspace…</p></div>;
   if (!transcript) return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Transcript not found.</p></div>;
 
-  // Generate line numbers
   const lines = transcript.content.split("\n");
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      <header className="shrink-0 border-b border-border px-4 py-3">
+      {/* Header */}
+      <header className="shrink-0 border-b border-border bg-card px-5 py-3">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/project/${projectId}/transcripts`)}><ArrowLeft className="h-4 w-4" /></Button>
-          <div>
-            <h1 className="font-heading text-base text-foreground">Coding Workspace</h1>
-            <p className="text-xs text-muted-foreground">{transcript.participant_pseudonym}</p>
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/project/${projectId}/transcripts`)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex items-center gap-3">
+            <h1 className="font-body text-sm font-semibold text-foreground tracking-wide-sm">Coding Workspace</h1>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-sm text-muted-foreground">{transcript.participant_pseudonym}</span>
           </div>
         </div>
       </header>
 
       <ResizablePanelGroup direction="horizontal" className="flex-1">
+        {/* Transcript panel — lighter bg for readability */}
         <ResizablePanel defaultSize={60} minSize={40}>
           <ScrollArea className="h-full">
-            <div className="relative p-6">
-              <div
-                ref={contentRef}
-                className="whitespace-pre-wrap font-mono text-[13px] leading-7 text-foreground selection:bg-primary/20"
-                onMouseUp={handleMouseUp}
-              >
-                {renderedContent}
-              </div>
-
-              {/* Floating popover */}
-              {popoverOpen && popoverPos && (
-                <div className="fixed z-50" style={{ left: Math.max(10, popoverPos.x - 150), top: Math.max(10, popoverPos.y - (aiSuggestions.length > 0 ? 420 : 200)) }}>
-                  <div className="w-[300px] rounded-none border border-primary bg-popover p-4">
-                    <p className="mb-3 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Apply code to selection</p>
-                    <div className="space-y-3">
-                      <Input placeholder="New code name..." value={newCodeLabel} onChange={(e) => { setNewCodeLabel(e.target.value); if (e.target.value) setSelectedCodeId(""); }} className="h-8 text-sm" />
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground">or</span>
-                        <Select value={selectedCodeId} onValueChange={(v) => { setSelectedCodeId(v); if (v) setNewCodeLabel(""); }}>
-                          <SelectTrigger className="h-8 text-sm flex-1"><SelectValue placeholder="Existing code" /></SelectTrigger>
-                          <SelectContent>{codes.map((c) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}</SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="ghost" className="flex-1" onClick={() => { setPopoverOpen(false); setSelection(null); setAiSuggestions([]); window.getSelection()?.removeAllRanges(); }}>Cancel</Button>
-                        <Button size="sm" variant="outline" className="gap-1" onClick={askAI} disabled={aiLoading}>
-                          {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                          Ask AI
-                        </Button>
-                        <Button size="sm" className="flex-1" onClick={applyCode}>Apply</Button>
-                      </div>
-                    </div>
-
-                    {/* AI Suggestions */}
-                    {aiSuggestions.length > 0 && (
-                      <div className="mt-3 space-y-2 border-t border-border pt-3">
-                        <p className="font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">AI Suggestions</p>
-                        {aiSuggestions.map((s, i) => (
-                          <button
-                            key={i}
-                            className="w-full rounded-sm border border-border bg-secondary/50 p-2.5 text-left transition-colors hover:bg-secondary"
-                            onClick={() => { setNewCodeLabel(s.label); setSelectedCodeId(""); }}
-                          >
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-sm font-medium text-foreground">{s.label}</span>
-                              <Badge variant="outline" className={`${confidenceBadge[s.confidence]}`}>{s.confidence}</Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground leading-relaxed">{s.justification}</p>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {aiLoading && (
-                      <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Analyzing segment…</span>
-                      </div>
-                    )}
+            <div className="flex bg-transcript">
+              {/* Line numbers gutter */}
+              <div className="shrink-0 select-none border-r border-transcript-line px-3 py-6 text-right">
+                {lines.map((_, i) => (
+                  <div key={i} className="font-mono text-[11px] leading-7 text-muted-foreground/40">
+                    {i + 1}
                   </div>
+                ))}
+              </div>
+              {/* Content */}
+              <div className="flex-1 p-6">
+                <div
+                  ref={contentRef}
+                  className="whitespace-pre-wrap font-mono text-[13px] leading-7 text-transcript-foreground selection:bg-primary/25"
+                  onMouseUp={handleMouseUp}
+                >
+                  {renderedContent}
                 </div>
-              )}
+              </div>
             </div>
+
+            {/* Floating popover */}
+            {popoverOpen && popoverPos && (
+              <div className="fixed z-50" style={{ left: Math.max(10, popoverPos.x - 160), top: Math.max(10, popoverPos.y - (aiSuggestions.length > 0 ? 420 : 210)) }}>
+                <div className="w-[320px] rounded-md border border-primary/50 bg-popover p-4 shadow-lg shadow-black/30">
+                  <p className="mb-3 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Apply code to selection</p>
+                  <div className="space-y-3">
+                    <Input placeholder="New code name..." value={newCodeLabel} onChange={(e) => { setNewCodeLabel(e.target.value); if (e.target.value) setSelectedCodeId(""); }} className="h-8 text-sm" />
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">or</span>
+                      <Select value={selectedCodeId} onValueChange={(v) => { setSelectedCodeId(v); if (v) setNewCodeLabel(""); }}>
+                        <SelectTrigger className="h-8 text-sm flex-1"><SelectValue placeholder="Existing code" /></SelectTrigger>
+                        <SelectContent>{codes.map((c) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="ghost" className="flex-1" onClick={() => { setPopoverOpen(false); setSelection(null); setAiSuggestions([]); window.getSelection()?.removeAllRanges(); }}>Cancel</Button>
+                      <Button size="sm" variant="outline" className="gap-1" onClick={askAI} disabled={aiLoading}>
+                        {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                        Ask AI
+                      </Button>
+                      <Button size="sm" className="flex-1" onClick={applyCode}>Apply</Button>
+                    </div>
+                  </div>
+
+                  {aiSuggestions.length > 0 && (
+                    <div className="mt-3 space-y-2 border-t border-border pt-3">
+                      <p className="font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">AI Suggestions</p>
+                      {aiSuggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          className="w-full rounded-sm border border-border bg-secondary/50 p-2.5 text-left transition-colors hover:bg-secondary"
+                          onClick={() => { setNewCodeLabel(s.label); setSelectedCodeId(""); }}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium text-foreground">{s.label}</span>
+                            <Badge variant="outline" className={`${confidenceBadge[s.confidence]}`}>{s.confidence}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{s.justification}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {aiLoading && (
+                    <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Analyzing segment…</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </ScrollArea>
         </ResizablePanel>
 
         <ResizableHandle />
 
+        {/* Codes panel */}
         <ResizablePanel defaultSize={40} minSize={25}>
           <div className="flex h-full flex-col border-l border-border bg-card">
             <div className="border-b border-border px-6 py-4">
-              <h2 className="font-heading text-sm text-foreground">Codes</h2>
-              <p className="font-mono text-[10px] text-muted-foreground">{codes.length} codes · {applications.length} applications</p>
+              <h2 className="font-body text-sm font-semibold text-foreground">Codes</h2>
+              <p className="font-mono text-[10px] text-muted-foreground mt-0.5">{codes.length} codes · {applications.length} applications</p>
             </div>
             <ScrollArea className="flex-1">
-              <div className="p-4 space-y-0.5">
+              <div className="p-3 space-y-0.5">
                 {codes.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-8 text-center">No codes yet. Select text to create your first code.</p>
                 ) : codes.map((code) => (
-                  <button key={code.id} onClick={() => scrollToCode(code.id)} className="flex w-full items-center gap-3 rounded-sm px-3 py-2 text-left text-sm transition-colors hover:bg-secondary">
+                  <button key={code.id} onClick={() => scrollToCode(code.id)} className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors hover:bg-secondary">
                     <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: code.color || "hsl(var(--primary))" }} />
-                    <span className="flex-1 truncate text-foreground">{code.label}</span>
+                    <span className="flex-1 truncate text-foreground font-body">{code.label}</span>
                     <span className="font-mono text-[10px] text-muted-foreground tabular-nums">{codeFrequency[code.id] || 0}</span>
                   </button>
                 ))}
