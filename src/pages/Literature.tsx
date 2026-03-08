@@ -1,0 +1,352 @@
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ArrowLeft, Upload, BookOpen, FileText, Loader2, ChevronDown, ChevronRight, Sparkles, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+
+type Paper = {
+  id: string;
+  project_id: string;
+  title: string;
+  authors: string | null;
+  year: number | null;
+  core_theoretical_concept: string | null;
+  file_url: string | null;
+  pdf_text_content: string | null;
+  main_argument: string | null;
+  theoretical_contribution: string | null;
+  relevance_to_domain: string | null;
+  key_concepts: any;
+  created_at: string;
+};
+
+const Literature = () => {
+  const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
+  const { userId, loading: authLoading } = useCurrentUser();
+
+  const [papers, setPapers] = useState<Paper[]>([]);
+  const [reviewText, setReviewText] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Upload form state
+  const [showUpload, setShowUpload] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newAuthors, setNewAuthors] = useState("");
+  const [newYear, setNewYear] = useState("");
+  const [newConcept, setNewConcept] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const [extractingId, setExtractingId] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    if (!projectId) return;
+    const [papersRes, projectRes] = await Promise.all([
+      supabase.from("literature_papers").select("*").eq("project_id", projectId).order("created_at", { ascending: false }),
+      supabase.from("projects").select("literature_review_text").eq("id", projectId).single(),
+    ]);
+    if (papersRes.data) setPapers(papersRes.data as Paper[]);
+    if (projectRes.data) setReviewText((projectRes.data as any).literature_review_text || "");
+    setLoading(false);
+  }, [projectId]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const handleUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !projectId) { toast.error("Title is required"); return; }
+
+    setUploading(true);
+    try {
+      let pdfText = "";
+      let fileUrl = "";
+
+      if (selectedFile) {
+        pdfText = await selectedFile.text();
+
+        const filePath = `${projectId}/lit-${crypto.randomUUID()}-${selectedFile.name}`;
+        const { error: uploadErr } = await supabase.storage.from("transcripts").upload(filePath, selectedFile);
+        if (uploadErr) throw uploadErr;
+        const { data: urlData } = supabase.storage.from("transcripts").getPublicUrl(filePath);
+        fileUrl = urlData.publicUrl;
+      }
+
+      const { error } = await supabase.from("literature_papers").insert({
+        project_id: projectId,
+        title: newTitle.trim(),
+        authors: newAuthors || null,
+        year: newYear ? parseInt(newYear) : null,
+        core_theoretical_concept: newConcept || null,
+        file_url: fileUrl || null,
+        pdf_text_content: pdfText || null,
+      } as any);
+
+      if (error) throw error;
+      toast.success("Paper added");
+      setShowUpload(false);
+      setNewTitle(""); setNewAuthors(""); setNewYear(""); setNewConcept(""); setSelectedFile(null);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const extractConcepts = async (paper: Paper) => {
+    setExtractingId(paper.id);
+    try {
+      const { data: project } = await supabase
+        .from("projects")
+        .select("domain_framework")
+        .eq("id", projectId!)
+        .single();
+
+      const { data, error } = await supabase.functions.invoke("ai-extract-literature", {
+        body: {
+          title: paper.title,
+          authors: paper.authors,
+          core_theoretical_concept: paper.core_theoretical_concept,
+          pdf_text: paper.pdf_text_content,
+          domain_framework: project?.domain_framework,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) { toast.error(data.error); return; }
+
+      await supabase.from("literature_papers").update({
+        main_argument: data.main_argument,
+        theoretical_contribution: data.theoretical_contribution,
+        relevance_to_domain: data.relevance_to_domain,
+        key_concepts: data.key_concepts,
+      } as any).eq("id", paper.id);
+
+      toast.success("Concepts extracted");
+      loadData();
+    } catch (err: any) {
+      console.error("Extract failed:", err);
+      toast.error("Extraction failed");
+    } finally {
+      setExtractingId(null);
+    }
+  };
+
+  const deletePaper = async (id: string) => {
+    const { error } = await supabase.from("literature_papers").delete().eq("id", id);
+    if (error) { toast.error("Delete failed"); return; }
+    toast.success("Paper removed");
+    loadData();
+  };
+
+  const saveReview = async () => {
+    const { error } = await supabase.from("projects").update({
+      literature_review_text: reviewText,
+    } as any).eq("id", projectId!);
+    if (error) { toast.error("Save failed"); return; }
+    toast.success("Literature review saved");
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-muted-foreground">Loading literature…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border">
+        <div className="mx-auto flex max-w-[1200px] items-center gap-4 px-8 py-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/project/${projectId}/transcripts`)}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex-1">
+            <h1 className="font-heading text-xl text-foreground">Literature</h1>
+            <p className="text-xs text-muted-foreground">Papers & theoretical framework</p>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-[1200px] px-8 py-10 space-y-10">
+        {/* Section A: Papers */}
+        <section>
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h2 className="font-heading text-lg text-foreground">Papers</h2>
+              <p className="text-xs text-muted-foreground">Upload and extract concepts from academic papers (max 5)</p>
+            </div>
+            {papers.length < 5 && (
+              <Button size="sm" onClick={() => setShowUpload(!showUpload)}>
+                <Upload className="mr-1.5 h-3.5 w-3.5" />
+                Add Paper
+              </Button>
+            )}
+          </div>
+
+          {showUpload && (
+            <form onSubmit={handleUpload} className="mb-6 rounded-lg border border-primary/30 bg-card p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Paper Title *</Label>
+                  <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="e.g. Augmentation in Practice" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Authors</Label>
+                  <Input value={newAuthors} onChange={(e) => setNewAuthors(e.target.value)} placeholder="e.g. Smith & Jones" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Year</Label>
+                  <Input type="number" value={newYear} onChange={(e) => setNewYear(e.target.value)} placeholder="2024" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Core Theoretical Concept</Label>
+                  <Input value={newConcept} onChange={(e) => setNewConcept(e.target.value)} placeholder="e.g. Augmentation theory" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">PDF File</Label>
+                <Input type="file" accept=".pdf,.txt" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+              </div>
+              <div className="flex gap-2">
+                <Button type="submit" disabled={uploading}>{uploading ? "Uploading…" : "Add Paper"}</Button>
+                <Button type="button" variant="ghost" onClick={() => setShowUpload(false)}>Cancel</Button>
+              </div>
+            </form>
+          )}
+
+          {papers.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border py-12 text-center">
+              <BookOpen className="mx-auto mb-3 h-8 w-8 text-muted-foreground/20" />
+              <p className="text-sm text-muted-foreground">No papers yet. Add your first academic paper.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {papers.map((paper) => {
+                const isExpanded = expandedId === paper.id;
+                const hasConcepts = paper.key_concepts && paper.key_concepts.length > 0;
+
+                return (
+                  <div key={paper.id} className="rounded-lg border border-border bg-card overflow-hidden">
+                    <button
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left"
+                      onClick={() => setExpandedId(isExpanded ? null : paper.id)}
+                    >
+                      {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-sm text-foreground">{paper.title}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {paper.authors && `${paper.authors}`}{paper.year && ` (${paper.year})`}
+                        </span>
+                      </div>
+                      {hasConcepts && (
+                        <Badge variant="outline" className="border-success/40 text-success">EXTRACTED</Badge>
+                      )}
+                      {paper.core_theoretical_concept && (
+                        <Badge variant="secondary">{paper.core_theoretical_concept}</Badge>
+                      )}
+                    </button>
+
+                    {isExpanded && (
+                      <div className="border-t border-border px-4 py-4 space-y-4">
+                        {/* Actions */}
+                        <div className="flex items-center gap-2">
+                          {paper.pdf_text_content && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => extractConcepts(paper)}
+                              disabled={extractingId === paper.id}
+                            >
+                              {extractingId === paper.id ? (
+                                <><Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> Extracting…</>
+                              ) : (
+                                <><Sparkles className="mr-1.5 h-3 w-3" /> Extract key concepts</>
+                              )}
+                            </Button>
+                          )}
+                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deletePaper(paper.id)}>
+                            <Trash2 className="mr-1.5 h-3 w-3" /> Remove
+                          </Button>
+                        </div>
+
+                        {/* Extracted content */}
+                        {paper.main_argument && (
+                          <div className="space-y-3">
+                            <div>
+                              <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Main Argument</p>
+                              <p className="text-sm text-foreground">{paper.main_argument}</p>
+                            </div>
+                            {paper.theoretical_contribution && (
+                              <div>
+                                <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Theoretical Contribution</p>
+                                <p className="text-sm text-foreground">{paper.theoretical_contribution}</p>
+                              </div>
+                            )}
+                            {paper.relevance_to_domain && (
+                              <div>
+                                <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-1">Relevance to Domain</p>
+                                <p className="text-sm text-foreground">{paper.relevance_to_domain}</p>
+                              </div>
+                            )}
+                            {hasConcepts && (
+                              <div>
+                                <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Key Concepts</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {(paper.key_concepts as any[]).map((kc: any, i: number) => (
+                                    <div key={i} className="rounded-sm border border-border bg-secondary/30 p-3">
+                                      <p className="text-sm font-medium text-foreground">{kc.name}</p>
+                                      <p className="mt-1 text-xs text-muted-foreground">{kc.definition}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Section B: Literature Review */}
+        <section>
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="font-heading text-lg text-foreground">Literature Review Synthesis</h2>
+              <p className="text-xs text-muted-foreground">
+                Write or paste your literature review here. This will be used by the Literature Bridge to connect your theoretical framework to your emerging codes.
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={saveReview}>Save</Button>
+          </div>
+          <Textarea
+            value={reviewText}
+            onChange={(e) => setReviewText(e.target.value)}
+            rows={16}
+            className="min-h-[300px] text-sm leading-7"
+            placeholder="Write or paste your literature review here. This will be used by the Literature Bridge (F3) to connect your theoretical framework to your emerging codes."
+            onBlur={saveReview}
+          />
+        </section>
+      </main>
+    </div>
+  );
+};
+
+export default Literature;
