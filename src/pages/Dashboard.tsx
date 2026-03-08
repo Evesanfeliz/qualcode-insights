@@ -3,22 +3,27 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchProjects, type Project } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, LogOut } from "lucide-react";
+import { Plus, LogOut, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-const statusConfig: Record<string, { label: string; className: string }> = {
-  setup: { label: "Setup", className: "bg-muted text-muted-foreground" },
-  in_progress: { label: "In Progress", className: "bg-accent/15 text-accent" },
-  complete: { label: "Complete", className: "bg-primary/10 text-primary" },
+const statusDot: Record<string, string> = {
+  setup: "bg-muted-foreground",
+  in_progress: "bg-primary",
+  complete: "bg-success",
+};
+
+const statusLabel: Record<string, string> = {
+  setup: "SETUP",
+  in_progress: "IN PROGRESS",
+  complete: "COMPLETE",
 };
 
 const approachLabels: Record<string, string> = {
-  grounded: "Grounded",
-  content: "Content",
-  template: "Template",
+  grounded: "GROUNDED",
+  content: "CONTENT",
+  template: "TEMPLATE",
 };
 
 const Dashboard = () => {
@@ -55,11 +60,11 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-secondary">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <h1 className="font-heading text-xl font-bold text-primary">
+      <header className="border-b border-border">
+        <div className="mx-auto flex max-w-[1200px] items-center justify-between px-8 py-4">
+          <h1 className="font-heading text-xl text-foreground">
             QualCode AI
           </h1>
           <Button variant="ghost" size="sm" onClick={handleLogout}>
@@ -70,85 +75,72 @@ const Dashboard = () => {
       </header>
 
       {/* Main */}
-      <main className="mx-auto max-w-5xl px-6 py-10">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h2 className="font-heading text-2xl font-bold text-foreground">
-              Projects
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Your qualitative research projects
-            </p>
-          </div>
-          <Button
-            onClick={() => navigate("/project/new")}
-            className="bg-accent text-accent-foreground hover:bg-accent/90"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            New Project
-          </Button>
+      <main className="mx-auto max-w-[1200px] px-8 py-10">
+        <div className="mb-8">
+          <h2 className="font-heading text-2xl text-foreground">
+            Projects
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your qualitative research projects
+          </p>
         </div>
 
+        {/* New Project button - full width dashed */}
+        <button
+          onClick={() => navigate("/project/new")}
+          className="mb-6 flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border py-3 text-[13px] font-medium tracking-wide-sm text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+        >
+          <Plus className="h-4 w-4" />
+          New Project
+        </button>
+
         {loading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-2">
             {[1, 2, 3].map((i) => (
-              <Card key={i} className="animate-pulse">
-                <CardHeader>
-                  <div className="h-5 w-3/4 rounded bg-muted" />
-                </CardHeader>
-                <CardContent>
-                  <div className="h-4 w-1/2 rounded bg-muted" />
-                </CardContent>
-              </Card>
+              <div key={i} className="h-14 animate-pulse rounded-lg border border-border bg-card" />
             ))}
           </div>
         ) : projects.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <p className="mb-4 text-muted-foreground">
-                No projects yet. Create your first research project.
-              </p>
-              <Button
-                onClick={() => navigate("/project/new")}
-                className="bg-accent text-accent-foreground hover:bg-accent/90"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                New Project
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="rounded-lg border border-dashed border-border py-16 text-center">
+            <p className="text-sm text-muted-foreground">
+              No projects yet. Create your first research project.
+            </p>
+          </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="space-y-1">
             {projects.map((project) => (
-              <Card
+              <button
                 key={project.id}
-                className="cursor-pointer transition-shadow hover:shadow-md"
+                className="flex w-full items-center gap-4 rounded-lg border border-border bg-card px-6 py-4 text-left transition-colors hover:bg-secondary"
                 onClick={() => navigate(`/project/${project.id}/transcripts`)}
               >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="font-heading text-base font-semibold leading-snug">
-                      {project.title}
-                    </CardTitle>
-                    <Badge
-                      variant="secondary"
-                      className={statusConfig[project.status]?.className}
-                    >
-                      {statusConfig[project.status]?.label}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="flex items-center gap-2 pt-0">
-                  {project.approach && (
-                    <Badge variant="outline" className="text-xs font-normal">
-                      {approachLabels[project.approach]}
-                    </Badge>
-                  )}
-                  <span className="ml-auto text-xs text-muted-foreground">
-                    {format(new Date(project.created_at), "MMM d, yyyy")}
+                {/* Title */}
+                <span className="flex-1 font-heading text-lg text-foreground">
+                  {project.title}
+                </span>
+
+                {/* Approach badge */}
+                {project.approach && (
+                  <Badge variant="outline">
+                    {approachLabels[project.approach]}
+                  </Badge>
+                )}
+
+                {/* Status dot + label */}
+                <div className="flex items-center gap-2">
+                  <div className={`h-2 w-2 rounded-full ${statusDot[project.status]}`} />
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {statusLabel[project.status]}
                   </span>
-                </CardContent>
-              </Card>
+                </div>
+
+                {/* Date */}
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {format(new Date(project.created_at), "MMM d, yyyy")}
+                </span>
+
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
             ))}
           </div>
         )}

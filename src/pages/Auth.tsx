@@ -41,20 +41,20 @@ const Auth = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-secondary px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
-          <h1 className="font-heading text-3xl font-bold text-primary">
+          <h1 className="font-heading text-3xl text-foreground">
             QualCode AI
           </h1>
-          <p className="mt-2 text-muted-foreground">
+          <p className="mt-2 text-sm text-muted-foreground">
             Qualitative Research Coding Tool
           </p>
         </div>
 
-        <Card className="border-border shadow-lg">
+        <Card>
           <CardHeader className="space-y-1">
-            <CardTitle className="font-heading text-xl">
+            <CardTitle>
               {isLogin ? "Sign in" : "Create account"}
             </CardTitle>
             <CardDescription>
@@ -90,7 +90,7 @@ const Auth = () => {
               </div>
               <Button
                 type="submit"
-                className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
+                className="w-full"
                 disabled={loading}
               >
                 {loading ? "Please wait..." : isLogin ? "Sign in" : "Create account"}
@@ -101,7 +101,7 @@ const Auth = () => {
               <button
                 type="button"
                 onClick={() => setIsLogin(!isLogin)}
-                className="text-accent underline-offset-4 hover:underline"
+                className="text-primary underline-offset-4 hover:underline"
               >
                 {isLogin
                   ? "Don't have an account? Sign up"

@@ -4,11 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Upload, FileText, Calendar, User, BookOpen, StickyNote } from "lucide-react";
+import { ArrowLeft, Upload, FileText, Calendar, User, BookOpen, StickyNote, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -31,10 +30,16 @@ type ProjectMember = {
   color_theme: string | null;
 };
 
-const statusConfig: Record<string, { label: string; className: string }> = {
-  uploaded: { label: "Uploaded", className: "bg-muted text-muted-foreground" },
-  in_progress: { label: "In Progress", className: "bg-accent/15 text-accent" },
-  coded: { label: "Coded", className: "bg-primary/10 text-primary" },
+const statusLabel: Record<string, string> = {
+  uploaded: "UPLOADED",
+  in_progress: "IN PROGRESS",
+  coded: "CODED",
+};
+
+const statusDot: Record<string, string> = {
+  uploaded: "bg-muted-foreground",
+  in_progress: "bg-primary",
+  coded: "bg-success",
 };
 
 const TranscriptManager = () => {
@@ -95,16 +100,13 @@ const TranscriptManager = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Read file content
       let content = "";
       if (selectedFile.name.endsWith(".txt")) {
         content = await selectedFile.text();
       } else if (selectedFile.name.endsWith(".pdf")) {
-        // For PDF, store raw text placeholder; real extraction would need server-side
         content = await selectedFile.text();
       }
 
-      // Upload file to storage
       const filePath = `${projectId}/${crypto.randomUUID()}-${selectedFile.name}`;
       const { error: uploadError } = await supabase.storage
         .from("transcripts")
@@ -145,24 +147,24 @@ const TranscriptManager = () => {
   };
 
   return (
-    <div className="min-h-screen bg-secondary">
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-5xl items-center gap-4 px-6 py-4">
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border">
+        <div className="mx-auto flex max-w-[1200px] items-center gap-4 px-8 py-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
-            <h1 className="font-heading text-xl font-bold text-primary">
+            <h1 className="font-heading text-xl text-foreground">
               {projectTitle || "Project"}
             </h1>
-            <p className="text-sm text-muted-foreground">Transcript Manager</p>
+            <p className="text-xs text-muted-foreground">Transcript Manager</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate(`/project/${projectId}/codebook`)}>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/codebook`)}>
               <BookOpen className="mr-1.5 h-3.5 w-3.5" />
               Codebook
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate(`/project/${projectId}/memos`)}>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/memos`)}>
               <StickyNote className="mr-1.5 h-3.5 w-3.5" />
               Memos
             </Button>
@@ -170,17 +172,17 @@ const TranscriptManager = () => {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 py-10">
+      <main className="mx-auto max-w-[1200px] px-8 py-10">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h2 className="font-heading text-2xl font-bold text-foreground">Transcripts</h2>
+            <h2 className="font-heading text-2xl text-foreground">Transcripts</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Upload and manage interview transcripts
             </p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Button>
                 <Upload className="mr-2 h-4 w-4" />
                 Upload Transcript
               </Button>
@@ -238,12 +240,11 @@ const TranscriptManager = () => {
                   />
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                  <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    className="bg-accent text-accent-foreground hover:bg-accent/90"
                     disabled={uploading}
                   >
                     {uploading ? "Uploading..." : "Upload"}
@@ -255,66 +256,59 @@ const TranscriptManager = () => {
         </div>
 
         {loading ? (
-          <div className="grid gap-4">
+          <div className="space-y-2">
             {[1, 2].map((i) => (
-              <Card key={i} className="animate-pulse">
-                <CardContent className="py-6">
-                  <div className="h-5 w-1/3 rounded bg-muted" />
-                </CardContent>
-              </Card>
+              <div key={i} className="h-14 animate-pulse rounded-lg border border-border bg-card" />
             ))}
           </div>
         ) : transcripts.length === 0 ? (
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <FileText className="mb-4 h-10 w-10 text-muted-foreground" />
-              <p className="mb-4 text-muted-foreground">
-                No transcripts yet. Upload your first interview transcript.
-              </p>
-            </CardContent>
-          </Card>
+          <div className="rounded-lg border border-dashed border-border py-16 text-center">
+            <FileText className="mx-auto mb-4 h-10 w-10 text-muted-foreground/20" />
+            <p className="text-sm text-muted-foreground">
+              No transcripts yet. Upload your first interview transcript.
+            </p>
+          </div>
         ) : (
-          <div className="grid gap-4">
+          <div className="space-y-1">
             {transcripts.map((t) => (
-              <Card
+              <button
                 key={t.id}
-                className="cursor-pointer transition-shadow hover:shadow-md"
+                className="flex w-full items-center gap-4 rounded-lg border border-border bg-card px-6 py-4 text-left transition-colors hover:bg-secondary"
                 onClick={() => navigate(`/project/${projectId}/code/${t.id}`)}
               >
-                <CardContent className="flex items-center gap-4 py-4">
-                  <FileText className="h-8 w-8 shrink-0 text-muted-foreground" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-heading font-semibold text-foreground">
-                        {t.participant_pseudonym}
+                <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
+                <div className="flex-1 min-w-0">
+                  <span className="font-heading text-base text-foreground">
+                    {t.participant_pseudonym}
+                  </span>
+                  <div className="mt-1 flex items-center gap-4 text-xs text-muted-foreground">
+                    {t.interview_date && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {format(new Date(t.interview_date), "MMM d, yyyy")}
                       </span>
-                      <Badge
-                        variant="secondary"
-                        className={statusConfig[t.status || "uploaded"]?.className}
-                      >
-                        {statusConfig[t.status || "uploaded"]?.label}
-                      </Badge>
-                    </div>
-                    <div className="mt-1 flex items-center gap-4 text-xs text-muted-foreground">
-                      {t.interview_date && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {format(new Date(t.interview_date), "MMM d, yyyy")}
-                        </span>
-                      )}
-                      {t.assigned_to && (
-                        <span className="flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          {getMemberLabel(t.assigned_to)}
-                        </span>
-                      )}
-                      {t.word_count && (
-                        <span>{t.word_count.toLocaleString()} words</span>
-                      )}
-                    </div>
+                    )}
+                    {t.assigned_to && (
+                      <span className="flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        {getMemberLabel(t.assigned_to)}
+                      </span>
+                    )}
+                    {t.word_count && (
+                      <span className="font-mono text-[10px]">{t.word_count.toLocaleString()} words</span>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className={`h-2 w-2 rounded-full ${statusDot[t.status || "uploaded"]}`} />
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {statusLabel[t.status || "uploaded"]}
+                  </span>
+                </div>
+
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </button>
             ))}
           </div>
         )}
