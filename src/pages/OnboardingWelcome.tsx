@@ -91,8 +91,12 @@ const Slide3 = () => (
           Select passages and give them short descriptive labels.
           Be generous — code everything that seems interesting.
           Do not worry about categories yet.
-          Ask yourself: What is this about? Who is speaking? What are they doing?
         </p>
+        <div className="mt-3 rounded-md border border-primary/30 bg-primary/5 px-4 py-3">
+          <p className="text-sm text-primary font-medium italic leading-relaxed">
+            💡 Ask yourself: What is this about? Who is speaking? What are they doing?
+          </p>
+        </div>
       </div>
       <div className="rounded-lg border border-warning/40 bg-card p-6 space-y-3">
         <span className="font-mono text-[11px] uppercase tracking-wider text-warning">Phase 2</span>
