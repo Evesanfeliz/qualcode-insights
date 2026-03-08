@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import Shepherd from "shepherd.js";
 import "shepherd.js/dist/css/shepherd.css";
 import { useOnboarding } from "@/hooks/useOnboarding";
@@ -10,7 +10,7 @@ const SHEPHERD_STYLES = `
     background: hsl(220, 18%, 13%) !important;
     border: 1px solid hsl(172, 83%, 33%) !important;
     border-radius: 8px !important;
-    max-width: 380px !important;
+    max-width: 400px !important;
     box-shadow: 0 20px 60px rgba(0,0,0,0.5) !important;
   }
   .shepherd-header {
@@ -70,9 +70,10 @@ type ShepherdStepOptions = {
   text: string;
   buttons: ShepherdButton[];
   attachTo?: { element: string; on: string };
+  beforeShowPromise?: () => Promise<void>;
 };
 
-export function AppTour({ autoStart = false }: { autoStart?: boolean }) {
+export function AppTour({ autoStart = false, projectId }: { autoStart?: boolean; projectId?: string }) {
   const navigate = useNavigate();
   const { updateProgress } = useOnboarding();
   const tourRef = useRef<any>(null);
@@ -122,6 +123,35 @@ export function AppTour({ autoStart = false }: { autoStart?: boolean }) {
         stepOptions.attachTo = { element: step.attachTo, on: "bottom" };
       }
 
+      // Navigate to the correct page before showing the step
+      if (step.navigateTo) {
+        const navTarget = step.navigateTo;
+        stepOptions.beforeShowPromise = () => {
+          return new Promise<void>((resolve) => {
+            const pid = projectId || window.location.pathname.match(/\/project\/([^/]+)/)?.[1];
+            let targetPath: string;
+            
+            if (navTarget === "/dashboard") {
+              targetPath = "/dashboard";
+            } else if (pid) {
+              targetPath = `/project/${pid}/${navTarget}`;
+            } else {
+              resolve();
+              return;
+            }
+
+            // Only navigate if we're not already there
+            if (window.location.pathname !== targetPath) {
+              navigate(targetPath);
+              // Wait for page to render
+              setTimeout(resolve, 600);
+            } else {
+              resolve();
+            }
+          });
+        };
+      }
+
       tour.addStep(stepOptions as any);
     });
 
@@ -135,7 +165,7 @@ export function AppTour({ autoStart = false }: { autoStart?: boolean }) {
 
     tourRef.current = tour;
     tour.start();
-  }, [updateProgress]);
+  }, [updateProgress, navigate, projectId]);
 
   useEffect(() => {
     if (autoStart) {

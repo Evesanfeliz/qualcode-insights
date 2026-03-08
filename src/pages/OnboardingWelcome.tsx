@@ -106,8 +106,12 @@ const Slide3 = () => (
           Which ones keep appearing? Which mean similar things?
           Group them into categories.
           These categories become the building blocks of your theory.
-          Ask yourself: Why is this happening? What does this reveal?
         </p>
+        <div className="mt-3 rounded-md border border-warning/30 bg-warning/5 px-4 py-3">
+          <p className="text-sm text-warning font-medium italic leading-relaxed">
+            💡 Ask yourself: Why is this happening? What does this reveal?
+          </p>
+        </div>
       </div>
     </div>
   </div>
