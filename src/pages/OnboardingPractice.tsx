@@ -325,16 +325,25 @@ const OnboardingPractice = () => {
         </ResizablePanelGroup>
 
         {/* Step-by-step explanation panel — fixed at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 z-50">
-          <div className="mx-auto max-w-[600px] p-4">
-            <div className="rounded-lg border-2 border-primary bg-card p-5 shadow-2xl shadow-black/50">
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-body text-[15px] font-bold text-foreground">{step.title}</h3>
-                <span className="font-mono text-[10px] text-muted-foreground shrink-0 ml-3">
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-50">
+          <div className="mx-auto max-w-[680px] p-4">
+            <div key={currentStep} className="pointer-events-auto rounded-lg border-2 border-primary bg-card p-5 shadow-2xl shadow-black/50 motion-safe:animate-enter">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <h3 className="font-body text-lg font-bold leading-tight text-foreground">{step.title}</h3>
+                <span className="shrink-0 font-mono text-xs text-muted-foreground">
                   {currentStep + 1} / {DEMO_STEPS.length}
                 </span>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-4">{step.body}</p>
+
+              <div className="mb-4">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">Practice progress</span>
+                  <span className="font-mono text-xs text-muted-foreground">{Math.round(progressValue)}%</span>
+                </div>
+                <Progress value={progressValue} className="h-2" />
+              </div>
+
+              <p className="mb-4 text-base leading-relaxed text-foreground/90">{step.body}</p>
               <div className="flex items-center justify-between">
                 <Button
                   size="sm"
@@ -350,7 +359,7 @@ const OnboardingPractice = () => {
                     <>Next <Play className="h-3 w-3" /></>
                   )}
                 </Button>
-                <button onClick={handleSkip} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <button onClick={handleSkip} className="text-xs text-muted-foreground transition-colors hover:text-foreground">
                   Skip practice →
                 </button>
               </div>
