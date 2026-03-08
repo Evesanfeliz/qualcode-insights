@@ -83,7 +83,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppTour autoStart={shouldTour && !progress?.tour_completed} />
+      <AppTour autoStart={shouldTour && !progress?.tour_completed} projectId={projects[0]?.id} />
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-[960px] items-center justify-between px-8 py-5">
