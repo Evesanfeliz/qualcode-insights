@@ -133,21 +133,10 @@ const NewProject = () => {
               </div>
 
               {/* Domain Framework */}
-              <div className="space-y-2">
-                <Label htmlFor="domain_framework">
-                  Domain Framework
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Describe your theoretical domain, e.g. "AI as capability amplifier for solopreneurs"
-                </p>
-                <Textarea
-                  id="domain_framework"
-                  placeholder="Describe the theoretical lens or domain framework..."
-                  value={form.domain_framework}
-                  onChange={(e) => setForm({ ...form, domain_framework: e.target.value })}
-                  rows={3}
-                />
-              </div>
+              <DomainFrameworkField
+                value={form.domain_framework}
+                onChange={(val) => setForm({ ...form, domain_framework: val })}
+              />
 
               {/* Collaborator */}
               <div className="space-y-2">
