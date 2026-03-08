@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Upload, FileText, Calendar, User, BookOpen, StickyNote, BookMarked, Lightbulb, Network, ChevronRight } from "lucide-react";
+import { ArrowLeft, Upload, FileText, Calendar, User, BookOpen, StickyNote, BookMarked, Lightbulb, Network, ChevronRight, HelpCircle } from "lucide-react";
+import { HelpModal } from "@/components/HelpModal";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -51,6 +52,7 @@ const TranscriptManager = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const [newTranscript, setNewTranscript] = useState({
     pseudonym: "",
@@ -159,26 +161,35 @@ const TranscriptManager = () => {
             </h1>
             <p className="text-xs text-muted-foreground">Transcript Manager</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/codebook`)}>
+          <div className="flex items-center gap-2" data-tour="sidebar">
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/transcripts`)} data-tour="transcripts-link">
+              <FileText className="mr-1.5 h-3.5 w-3.5" />
+              Transcripts
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/codebook`)} data-tour="codebook-link">
               <BookOpen className="mr-1.5 h-3.5 w-3.5" />
               Codebook
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/memos`)}>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/memos`)} data-tour="memos-link">
               <StickyNote className="mr-1.5 h-3.5 w-3.5" />
               Memos
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/literature`)}>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/literature`)} data-tour="literature-link">
               <BookMarked className="mr-1.5 h-3.5 w-3.5" />
               Literature
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/theory`)}>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/theory`)} data-tour="theory-link">
               <Lightbulb className="mr-1.5 h-3.5 w-3.5" />
               Theory
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/canvas`)}>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/canvas`)} data-tour="canvas-link">
               <Network className="mr-1.5 h-3.5 w-3.5" />
               Canvas
+            </Button>
+            <div className="w-px h-5 bg-border mx-1" />
+            <Button variant="ghost" size="sm" onClick={() => setHelpOpen(true)} data-tour="help-link">
+              <HelpCircle className="mr-1.5 h-3.5 w-3.5" />
+              Help
             </Button>
           </div>
         </div>
@@ -325,6 +336,7 @@ const TranscriptManager = () => {
           </div>
         )}
       </main>
+      <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchProjects, type Project } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, LogOut, ChevronRight, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useOnboarding } from "@/hooks/useOnboarding";
+import { AppTour } from "@/components/AppTour";
 
 const statusConfig: Record<string, { dot: string; label: string }> = {
   setup: { dot: "bg-muted-foreground", label: "Setup" },
@@ -24,6 +26,9 @@ const Dashboard = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { progress, loading: onboardingLoading } = useOnboarding();
+  const shouldTour = searchParams.get("tour") === "true";
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -32,6 +37,29 @@ const Dashboard = () => {
         navigate("/auth");
         return;
       }
+
+      // Check onboarding
+      const { data } = await supabase
+        .from("onboarding_progress" as any)
+        .select("*")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+
+      if (!data) {
+        navigate("/onboarding/welcome");
+        return;
+      }
+
+      const p = data as any;
+      if (!p.welcome_completed) {
+        navigate("/onboarding/welcome");
+        return;
+      }
+      if (!p.practice_completed) {
+        navigate("/onboarding/practice");
+        return;
+      }
+
       loadProjects();
     };
     checkAuth();
@@ -55,6 +83,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <AppTour autoStart={shouldTour && !progress?.tour_completed} />
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-[960px] items-center justify-between px-8 py-5">
