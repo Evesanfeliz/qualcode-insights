@@ -10,6 +10,84 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ArrowLeft, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 
+const DomainFrameworkField = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+}) => {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
+
+  const handleFile = async (file: File) => {
+    setReading(true);
+    try {
+      const text = await file.text();
+      onChange(value ? value + "\n\n" + text : text);
+      setFileName(file.name);
+    } catch {
+      // silently fail
+    } finally {
+      setReading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="domain_framework">Domain Framework</Label>
+      <p className="text-xs text-muted-foreground">
+        Describe your theoretical domain, e.g. &quot;AI as capability amplifier for solopreneurs&quot;
+      </p>
+      <Textarea
+        id="domain_framework"
+        placeholder="Describe the theoretical lens or domain framework..."
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={3}
+      />
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => fileRef.current?.click()}
+          disabled={reading}
+        >
+          <Upload className="mr-2 h-3.5 w-3.5" />
+          {reading ? "Reading..." : "Upload document"}
+        </Button>
+        {fileName && (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            {fileName}
+            <button
+              type="button"
+              onClick={() => {
+                setFileName(null);
+                if (fileRef.current) fileRef.current.value = "";
+              }}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        )}
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".txt,.md,.doc,.docx,.pdf"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleFile(file);
+        }}
+      />
+    </div>
+  );
+};
+
 const NewProject = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
