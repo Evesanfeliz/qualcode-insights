@@ -10,6 +10,7 @@ import TranscriptManager from "./pages/TranscriptManager";
 import CodingWorkspace from "./pages/CodingWorkspace";
 import Codebook from "./pages/Codebook";
 import MemoPad from "./pages/MemoPad";
+import Literature from "./pages/Literature";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
