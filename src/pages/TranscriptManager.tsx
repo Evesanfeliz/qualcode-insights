@@ -176,6 +176,10 @@ const TranscriptManager = () => {
               <Lightbulb className="mr-1.5 h-3.5 w-3.5" />
               Theory
             </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/canvas`)}>
+              <Network className="mr-1.5 h-3.5 w-3.5" />
+              Canvas
+            </Button>
           </div>
         </div>
       </header>
