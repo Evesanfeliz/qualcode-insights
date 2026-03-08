@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      activity_log: {
+        Row: {
+          action_type: string
+          created_at: string | null
+          description: string
+          id: string
+          metadata: Json | null
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string | null
+          description: string
+          id?: string
+          metadata?: Json | null
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string | null
+          description?: string
+          id?: string
+          metadata?: Json | null
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       code_applications: {
         Row: {
           applied_by: string
@@ -70,8 +108,13 @@ export type Database = {
           ai_suggested: boolean | null
           color: string | null
           created_at: string | null
+          created_by: string | null
           cycle: string | null
+          definition: string | null
+          example_quote: string | null
+          exclusion_criteria: string | null
           id: string
+          inclusion_criteria: string | null
           label: string
           parent_code_id: string | null
           project_id: string
@@ -81,8 +124,13 @@ export type Database = {
           ai_suggested?: boolean | null
           color?: string | null
           created_at?: string | null
+          created_by?: string | null
           cycle?: string | null
+          definition?: string | null
+          example_quote?: string | null
+          exclusion_criteria?: string | null
           id?: string
+          inclusion_criteria?: string | null
           label: string
           parent_code_id?: string | null
           project_id: string
@@ -92,8 +140,13 @@ export type Database = {
           ai_suggested?: boolean | null
           color?: string | null
           created_at?: string | null
+          created_by?: string | null
           cycle?: string | null
+          definition?: string | null
+          example_quote?: string | null
+          exclusion_criteria?: string | null
           id?: string
+          inclusion_criteria?: string | null
           label?: string
           parent_code_id?: string | null
           project_id?: string
@@ -109,6 +162,105 @@ export type Database = {
           },
           {
             foreignKeyName: "codes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      memo_replies: {
+        Row: {
+          author_id: string
+          author_type: string | null
+          content: string
+          created_at: string | null
+          id: string
+          memo_id: string
+        }
+        Insert: {
+          author_id: string
+          author_type?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          memo_id: string
+        }
+        Update: {
+          author_id?: string
+          author_type?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          memo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memo_replies_memo_id_fkey"
+            columns: ["memo_id"]
+            isOneToOne: false
+            referencedRelation: "memos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      memos: {
+        Row: {
+          author_id: string
+          content: Json | null
+          created_at: string | null
+          depth_score: string | null
+          id: string
+          linked_code_id: string | null
+          linked_transcript_id: string | null
+          memo_type: string | null
+          project_id: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          author_id: string
+          content?: Json | null
+          created_at?: string | null
+          depth_score?: string | null
+          id?: string
+          linked_code_id?: string | null
+          linked_transcript_id?: string | null
+          memo_type?: string | null
+          project_id: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          author_id?: string
+          content?: Json | null
+          created_at?: string | null
+          depth_score?: string | null
+          id?: string
+          linked_code_id?: string | null
+          linked_transcript_id?: string | null
+          memo_type?: string | null
+          project_id?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memos_linked_code_id_fkey"
+            columns: ["linked_code_id"]
+            isOneToOne: false
+            referencedRelation: "codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "memos_linked_transcript_id_fkey"
+            columns: ["linked_transcript_id"]
+            isOneToOne: false
+            referencedRelation: "transcripts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "memos_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
