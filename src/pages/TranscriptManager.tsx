@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Upload, FileText, Calendar, User } from "lucide-react";
+import { ArrowLeft, Upload, FileText, Calendar, User, BookOpen, StickyNote } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -156,6 +156,16 @@ const TranscriptManager = () => {
               {projectTitle || "Project"}
             </h1>
             <p className="text-sm text-muted-foreground">Transcript Manager</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate(`/project/${projectId}/codebook`)}>
+              <BookOpen className="mr-1.5 h-3.5 w-3.5" />
+              Codebook
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate(`/project/${projectId}/memos`)}>
+              <StickyNote className="mr-1.5 h-3.5 w-3.5" />
+              Memos
+            </Button>
           </div>
         </div>
       </header>
