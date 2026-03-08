@@ -287,7 +287,7 @@ const OnboardingPractice = () => {
                 <p className="font-mono text-[10px] text-muted-foreground mt-0.5">{codes.length} codes · {applications.length} applications</p>
               </div>
               <ScrollArea className="flex-1">
-                <div className="p-3 space-y-0.5">
+                <div className="p-3 pb-52 space-y-0.5">
                   {codes.length === 0 ? (
                     <p className="text-sm text-muted-foreground py-8 text-center">Codes will appear here as the demo proceeds.</p>
                   ) : codes.map((code) => (
