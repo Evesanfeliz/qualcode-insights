@@ -14,9 +14,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        heading: ["DM Serif Display", "Georgia", "serif"],
-        body: ["Inter", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "monospace"],
+        heading: ["Instrument Serif", "Georgia", "serif"],
+        body: ["IBM Plex Sans", "system-ui", "sans-serif"],
+        mono: ["IBM Plex Mono", "monospace"],
       },
       fontSize: {
         "2xs": ["0.625rem", { lineHeight: "1" }],
@@ -65,6 +65,11 @@ export default {
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
+        },
+        transcript: {
+          DEFAULT: "hsl(var(--transcript-bg))",
+          foreground: "hsl(var(--transcript-fg))",
+          line: "hsl(var(--transcript-line))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
