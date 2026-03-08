@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { createProject } from "@/lib/supabase-helpers";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,86 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Upload, X } from "lucide-react";
 import { toast } from "sonner";
+
+const DomainFrameworkField = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+}) => {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
+
+  const handleFile = async (file: File) => {
+    setReading(true);
+    try {
+      const text = await file.text();
+      onChange(value ? value + "\n\n" + text : text);
+      setFileName(file.name);
+    } catch {
+      // silently fail
+    } finally {
+      setReading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="domain_framework">Domain Framework</Label>
+      <p className="text-xs text-muted-foreground">
+        Describe your theoretical domain, e.g. &quot;AI as capability amplifier for solopreneurs&quot;
+      </p>
+      <Textarea
+        id="domain_framework"
+        placeholder="Describe the theoretical lens or domain framework..."
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={3}
+      />
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => fileRef.current?.click()}
+          disabled={reading}
+        >
+          <Upload className="mr-2 h-3.5 w-3.5" />
+          {reading ? "Reading..." : "Upload document"}
+        </Button>
+        {fileName && (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            {fileName}
+            <button
+              type="button"
+              onClick={() => {
+                setFileName(null);
+                if (fileRef.current) fileRef.current.value = "";
+              }}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        )}
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".txt,.md,.doc,.docx,.pdf"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) handleFile(file);
+        }}
+      />
+    </div>
+  );
+};
 
 const NewProject = () => {
   const navigate = useNavigate();
@@ -133,21 +211,10 @@ const NewProject = () => {
               </div>
 
               {/* Domain Framework */}
-              <div className="space-y-2">
-                <Label htmlFor="domain_framework">
-                  Domain Framework
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  Describe your theoretical domain, e.g. "AI as capability amplifier for solopreneurs"
-                </p>
-                <Textarea
-                  id="domain_framework"
-                  placeholder="Describe the theoretical lens or domain framework..."
-                  value={form.domain_framework}
-                  onChange={(e) => setForm({ ...form, domain_framework: e.target.value })}
-                  rows={3}
-                />
-              </div>
+              <DomainFrameworkField
+                value={form.domain_framework}
+                onChange={(val) => setForm({ ...form, domain_framework: val })}
+              />
 
               {/* Collaborator */}
               <div className="space-y-2">
