@@ -349,7 +349,7 @@ const CodingWorkspace = () => {
               )}
             </div>
           </ScrollArea>
-        </Panel>
+        </ResizablePanel>
 
         {/* Resize Handle */}
         <PanelResizeHandle className="w-1 bg-border hover:bg-accent/30 transition-colors" />
