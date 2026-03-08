@@ -2,6 +2,7 @@ import { useState, useRef, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Sparkles, ArrowRight, Play } from "lucide-react";
@@ -97,6 +98,7 @@ const OnboardingPractice = () => {
   const lines = text.split("\n");
 
   const step = DEMO_STEPS[currentStep];
+  const progressValue = ((currentStep + 1) / DEMO_STEPS.length) * 100;
 
   // Find segment position in transcript text
   const findSegmentPosition = useCallback((segText: string) => {
@@ -145,6 +147,17 @@ const OnboardingPractice = () => {
     if (step?.action === "review") setShowAiBadge(false);
   }, [currentStep]);
 
+  useEffect(() => {
+    if (animatingSegment === null) return;
+
+    const timeout = window.setTimeout(() => {
+      const activeHighlight = contentRef.current?.querySelector("[data-active-highlight='true']");
+      activeHighlight?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+
+    return () => window.clearTimeout(timeout);
+  }, [animatingSegment]);
+
   const handleNext = async () => {
     if (currentStep < DEMO_STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
@@ -172,29 +185,6 @@ const OnboardingPractice = () => {
     }
 
     if (allApps.length === 0 && animatingSegment === null) {
-      // Check if we should highlight the currently-being-selected segment
-      if (animatingSegment !== null) {
-        // handled below
-      }
-      // Highlight upcoming segment during animation
-      const seg = animatingSegment !== null ? DEMO_SEGMENTS[animatingSegment] : null;
-      if (seg) {
-        const pos = findSegmentPosition(seg.text);
-        if (pos) {
-          const before = text.slice(0, pos.start);
-          const selected = text.slice(pos.start, pos.end);
-          const after = text.slice(pos.end);
-          return (
-            <>
-              {before}
-              <mark className="bg-primary/30 border-l-2 border-primary pl-1 animate-pulse rounded-sm">
-                {selected}
-              </mark>
-              {after}
-            </>
-          );
-        }
-      }
       return text;
     }
 
@@ -223,6 +213,7 @@ const OnboardingPractice = () => {
       parts.push(
         <mark
           key={i}
+          data-active-highlight={h.isAnimating ? "true" : undefined}
           className={`rounded-sm pl-1 border-l-2 ${
             h.isAnimating
               ? "bg-primary/30 border-primary animate-pulse"
@@ -274,7 +265,7 @@ const OnboardingPractice = () => {
                     <div key={i} className="font-mono text-[11px] leading-7 text-muted-foreground/40">{i + 1}</div>
                   ))}
                 </div>
-                <div className="flex-1 p-6">
+                <div className="flex-1 p-6 pb-52">
                   <div
                     ref={contentRef}
                     className="whitespace-pre-wrap font-mono text-[13px] leading-7"
@@ -296,7 +287,7 @@ const OnboardingPractice = () => {
                 <p className="font-mono text-[10px] text-muted-foreground mt-0.5">{codes.length} codes · {applications.length} applications</p>
               </div>
               <ScrollArea className="flex-1">
-                <div className="p-3 space-y-0.5">
+                <div className="p-3 pb-52 space-y-0.5">
                   {codes.length === 0 ? (
                     <p className="text-sm text-muted-foreground py-8 text-center">Codes will appear here as the demo proceeds.</p>
                   ) : codes.map((code) => (
@@ -334,16 +325,25 @@ const OnboardingPractice = () => {
         </ResizablePanelGroup>
 
         {/* Step-by-step explanation panel — fixed at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 z-50">
-          <div className="mx-auto max-w-[600px] p-4">
-            <div className="rounded-lg border-2 border-primary bg-card p-5 shadow-2xl shadow-black/50">
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-body text-[15px] font-bold text-foreground">{step.title}</h3>
-                <span className="font-mono text-[10px] text-muted-foreground shrink-0 ml-3">
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 z-50">
+          <div className="mx-auto max-w-[680px] p-4">
+            <div key={currentStep} className="pointer-events-auto rounded-lg border-2 border-primary bg-card p-5 shadow-2xl shadow-black/50 motion-safe:animate-enter">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <h3 className="font-body text-lg font-bold leading-tight text-foreground">{step.title}</h3>
+                <span className="shrink-0 font-mono text-xs text-muted-foreground">
                   {currentStep + 1} / {DEMO_STEPS.length}
                 </span>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-4">{step.body}</p>
+
+              <div className="mb-4">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">Practice progress</span>
+                  <span className="font-mono text-xs text-muted-foreground">{Math.round(progressValue)}%</span>
+                </div>
+                <Progress value={progressValue} className="h-2" />
+              </div>
+
+              <p className="mb-4 text-base leading-relaxed text-foreground/90">{step.body}</p>
               <div className="flex items-center justify-between">
                 <Button
                   size="sm"
@@ -359,7 +359,7 @@ const OnboardingPractice = () => {
                     <>Next <Play className="h-3 w-3" /></>
                   )}
                 </Button>
-                <button onClick={handleSkip} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <button onClick={handleSkip} className="text-xs text-muted-foreground transition-colors hover:text-foreground">
                   Skip practice →
                 </button>
               </div>
