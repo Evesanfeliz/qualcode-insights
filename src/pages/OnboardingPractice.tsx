@@ -185,29 +185,6 @@ const OnboardingPractice = () => {
     }
 
     if (allApps.length === 0 && animatingSegment === null) {
-      // Check if we should highlight the currently-being-selected segment
-      if (animatingSegment !== null) {
-        // handled below
-      }
-      // Highlight upcoming segment during animation
-      const seg = animatingSegment !== null ? DEMO_SEGMENTS[animatingSegment] : null;
-      if (seg) {
-        const pos = findSegmentPosition(seg.text);
-        if (pos) {
-          const before = text.slice(0, pos.start);
-          const selected = text.slice(pos.start, pos.end);
-          const after = text.slice(pos.end);
-          return (
-            <>
-              {before}
-              <mark className="bg-primary/30 border-l-2 border-primary pl-1 animate-pulse rounded-sm">
-                {selected}
-              </mark>
-              {after}
-            </>
-          );
-        }
-      }
       return text;
     }
 
