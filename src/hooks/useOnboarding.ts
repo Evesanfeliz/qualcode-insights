@@ -29,7 +29,7 @@ export function useOnboarding() {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      setProgress(data as OnboardingProgress | null);
+      setProgress(data as unknown as OnboardingProgress | null);
       setLoading(false);
     };
     load();
@@ -43,17 +43,18 @@ export function useOnboarding() {
       .select()
       .single();
     if (error && error.code === "23505") {
-      // Already exists
       const { data: existing } = await supabase
         .from("onboarding_progress" as any)
         .select("*")
         .eq("user_id", userId)
         .single();
-      setProgress(existing as OnboardingProgress);
-      return existing as OnboardingProgress;
+      const result = existing as unknown as OnboardingProgress;
+      setProgress(result);
+      return result;
     }
-    setProgress(data as OnboardingProgress);
-    return data as OnboardingProgress;
+    const result = data as unknown as OnboardingProgress;
+    setProgress(result);
+    return result;
   }, [userId]);
 
   const updateProgress = useCallback(async (updates: Partial<OnboardingProgress>) => {
@@ -64,7 +65,7 @@ export function useOnboarding() {
       .eq("user_id", userId)
       .select()
       .single();
-    if (data) setProgress(data as OnboardingProgress);
+    if (data) setProgress(data as unknown as OnboardingProgress);
   }, [userId]);
 
   const isComplete = progress?.welcome_completed && progress?.practice_completed && progress?.tour_completed;

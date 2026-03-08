@@ -5,7 +5,6 @@ import "shepherd.js/dist/css/shepherd.css";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { TOUR_STEPS } from "@/lib/onboarding-data";
 
-// Custom Shepherd CSS injected via style tag
 const SHEPHERD_STYLES = `
   .shepherd-element {
     background: hsl(220, 18%, 13%) !important;
@@ -59,16 +58,29 @@ const SHEPHERD_STYLES = `
   }
 `;
 
+type ShepherdButton = {
+  text: string;
+  action: () => void;
+  classes: string;
+};
+
+type ShepherdStepOptions = {
+  id: string;
+  title: string;
+  text: string;
+  buttons: ShepherdButton[];
+  attachTo?: { element: string; on: string };
+};
+
 export function AppTour({ autoStart = false }: { autoStart?: boolean }) {
   const navigate = useNavigate();
   const { updateProgress } = useOnboarding();
-  const tourRef = useRef<Shepherd.Tour | null>(null);
+  const tourRef = useRef<any>(null);
   const styleRef = useRef<HTMLStyleElement | null>(null);
 
   const startTour = useCallback(() => {
     if (tourRef.current?.isActive) return;
 
-    // Inject styles
     if (!styleRef.current) {
       styleRef.current = document.createElement("style");
       styleRef.current.textContent = SHEPHERD_STYLES;
@@ -85,7 +97,7 @@ export function AppTour({ autoStart = false }: { autoStart?: boolean }) {
 
     TOUR_STEPS.forEach((step, i) => {
       const isLast = i === TOUR_STEPS.length - 1;
-      const buttons: Shepherd.Step.StepOptionsButton[] = [];
+      const buttons: ShepherdButton[] = [];
 
       if (i > 0) {
         buttons.push({ text: "Back", action: () => tour.back(), classes: "shepherd-button-secondary" });
@@ -93,16 +105,13 @@ export function AppTour({ autoStart = false }: { autoStart?: boolean }) {
       buttons.push({
         text: isLast ? "Start my research →" : "Next",
         action: () => {
-          if (isLast) {
-            tour.complete();
-          } else {
-            tour.next();
-          }
+          if (isLast) tour.complete();
+          else tour.next();
         },
         classes: "shepherd-button-primary",
       });
 
-      const stepOptions: Shepherd.Step.StepOptions = {
+      const stepOptions: ShepherdStepOptions = {
         id: step.id,
         title: step.title,
         text: step.text,
@@ -113,7 +122,7 @@ export function AppTour({ autoStart = false }: { autoStart?: boolean }) {
         stepOptions.attachTo = { element: step.attachTo, on: "bottom" };
       }
 
-      tour.addStep(stepOptions);
+      tour.addStep(stepOptions as any);
     });
 
     tour.on("complete", async () => {
@@ -130,14 +139,12 @@ export function AppTour({ autoStart = false }: { autoStart?: boolean }) {
 
   useEffect(() => {
     if (autoStart) {
-      // Small delay to let DOM render
       const timer = setTimeout(() => startTour(), 500);
       return () => clearTimeout(timer);
     }
   }, [autoStart, startTour]);
 
   useEffect(() => {
-    // Expose startTour globally for Help button
     (window as any).__startAppTour = startTour;
     return () => { delete (window as any).__startAppTour; };
   }, [startTour]);
