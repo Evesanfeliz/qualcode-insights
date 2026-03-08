@@ -10,8 +10,8 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const MOONSHOT_API_KEY = Deno.env.get("MOONSHOT_API_KEY");
-    if (!MOONSHOT_API_KEY) throw new Error("MOONSHOT_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const { memo_title, memo_content } = await req.json();
 
@@ -31,14 +31,14 @@ Evaluate this memo and respond with JSON:
   "push_question": "string (one specific question that would push this memo to the next level — grounded in the memo's own content)"
 }`;
 
-    const response = await fetch("https://api.moonshot.cn/v1/chat/completions", {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${MOONSHOT_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "moonshot-v1-8k",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -50,7 +50,7 @@ Evaluate this memo and respond with JSON:
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("Moonshot API error:", response.status, errText);
+      console.error("AI Gateway error:", response.status, errText);
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
