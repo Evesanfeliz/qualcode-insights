@@ -130,7 +130,7 @@ const CarouselPopover = ({
         collisionPadding={16}
         sideOffset={8}
       >
-        <div style={{ padding: "16px 20px", maxWidth: "340px" }}>
+        <div style={{ padding: "16px 20px" }}>
           <p style={{ fontWeight: 700, fontSize: "14px", color: "#E6EDF3", marginBottom: "12px" }}>{title}</p>
           
           <div style={{ minHeight: "180px" }}>
