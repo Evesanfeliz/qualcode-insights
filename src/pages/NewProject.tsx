@@ -63,22 +63,15 @@ const CarouselPopover = ({
   open, 
   onOpenChange 
 }: { 
-  options: typeof APPROACH_OPTIONS;
+  options: { title: string; content: string; example?: string; pair?: string }[];
   title: string;
   footer: string;
   open: boolean; 
   onOpenChange: (v: boolean) => void;
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const opt = options[currentIndex];
   
-  const goToPrevious = () => {
-    setCurrentIndex((prev) => (prev === 0 ? options.length - 1 : prev - 1));
-  };
-  
-  const goToNext = () => {
-    setCurrentIndex((prev) => (prev === options.length - 1 ? 0 : prev + 1));
-  };
-
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
@@ -94,11 +87,7 @@ const CarouselPopover = ({
       <PopoverContent
         style={{
           ...POPOVER_STYLE,
-          width: "min(320px, calc(100vw - 32px))",
-          maxHeight: "min(480px, calc(100vh - 80px))",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
+          width: "min(300px, calc(100vw - 32px))",
         }}
         className="p-0 border-0 shadow-none"
         side="top"
@@ -107,20 +96,32 @@ const CarouselPopover = ({
         collisionPadding={16}
         sideOffset={8}
       >
-        {/* Fixed header */}
-        <div style={{ padding: "16px 20px 12px", flexShrink: 0 }}>
-          <p style={{ fontWeight: 700, fontSize: "14px", color: "#E6EDF3", margin: 0 }}>{title}</p>
-        </div>
+        <div style={{ padding: "14px 18px" }}>
+          <p style={{ fontWeight: 700, fontSize: "13px", color: "#E6EDF3", marginBottom: "10px" }}>{title}</p>
+          <p style={{ fontWeight: 700, fontSize: "12px", color: "#E6EDF3", marginBottom: "4px", letterSpacing: "0.04em" }}>{opt.title}</p>
+          <p style={{ fontSize: "12px", color: "#8B949E", lineHeight: "1.65", margin: 0 }}>{opt.content}</p>
+          {opt.example && (
+            <p style={{ fontSize: "11px", color: "#8B949E", fontStyle: "italic", marginTop: "6px" }}>e.g. "{opt.example}"</p>
+          )}
+          {opt.pair && (
+            <p style={{ fontSize: "11px", color: "#0E9E8A", marginTop: "6px" }}>Pair with: {opt.pair}</p>
+          )}
 
-        {/* Scrollable body */}
-        <div style={{ padding: "0 20px", overflowY: "auto", flex: 1 }}>
-          <p style={{ fontWeight: 700, fontSize: "13px", color: "#E6EDF3", marginBottom: "8px" }}>
-            {options[currentIndex].title}
-          </p>
-          <div style={{ fontSize: "13px", color: "#8B949E", lineHeight: "1.7" }}>
-            {options[currentIndex].content}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "12px", paddingTop: "10px", borderTop: "1px solid #30363D" }}>
+            <button type="button" onClick={() => setCurrentIndex(i => i === 0 ? options.length - 1 : i - 1)} style={{ background: "none", border: "none", color: "#0E9E8A", cursor: "pointer", padding: "2px 6px", fontSize: "12px", fontWeight: 600 }}>← Prev</button>
+            <div style={{ display: "flex", gap: "5px" }}>
+              {options.map((_, idx) => (
+                <button key={idx} type="button" onClick={() => setCurrentIndex(idx)} style={{ width: "7px", height: "7px", borderRadius: "50%", background: idx === currentIndex ? "#0E9E8A" : "#30363D", border: "none", cursor: "pointer", padding: 0 }} />
+              ))}
+            </div>
+            <button type="button" onClick={() => setCurrentIndex(i => i === options.length - 1 ? 0 : i + 1)} style={{ background: "none", border: "none", color: "#0E9E8A", cursor: "pointer", padding: "2px 6px", fontSize: "12px", fontWeight: 600 }}>Next →</button>
           </div>
+
+          <p style={{ fontSize: "11px", color: "#8B949E", fontStyle: "italic", lineHeight: "1.5", marginTop: "8px" }}>{footer}</p>
         </div>
+      </PopoverContent>
+    </Popover>
+  );
 
         {/* Fixed footer */}
         <div style={{ padding: "12px 20px 0", flexShrink: 0, borderTop: "1px solid #30363D", marginTop: "12px" }}>
