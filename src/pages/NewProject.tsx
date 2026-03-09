@@ -122,9 +122,8 @@ const CarouselPopover = ({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        style={POPOVER_STYLE}
-        className="p-0 border-0 shadow-none"
         style={{ ...POPOVER_STYLE, width: "min(320px, calc(100vw - 32px))" }}
+        className="p-0 border-0 shadow-none"
         side="bottom"
         align="start"
         avoidCollisions
