@@ -23,66 +23,36 @@ const POPOVER_STYLE = {
 const APPROACH_OPTIONS = [
   {
     title: "GROUNDED",
-    content: (
-      <>
-        <p>You let the theory emerge from the data.</p>
-        <p style={{ marginTop: "8px" }}>You start with no fixed framework — codes and categories develop from what participants say. Best when your research question is exploratory and you are not testing an existing theory.</p>
-        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Example: 'What does AI mean to solopreneurs?' → you discover the answer.</p>
-      </>
-    )
+    content: "Theory emerges from data. No fixed framework — codes develop from what participants say. Best for exploratory research.",
+    example: "What does AI mean to solopreneurs?"
   },
   {
     title: "CONTENT ANALYSIS",
-    content: (
-      <>
-        <p>You start with a framework and look for evidence of it in the data.</p>
-        <p style={{ marginTop: "8px" }}>Codes are defined before you read the transcripts, derived from existing theory. Best when you are testing or extending a known model.</p>
-        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Example: 'Does Brynjolfsson's augmentation model apply here?' → you test it.</p>
-      </>
-    )
+    content: "Start with a framework and look for evidence. Codes defined beforehand from existing theory. Best for testing or extending known models.",
+    example: "Does Brynjolfsson's augmentation model apply here?"
   },
   {
     title: "TEMPLATE",
-    content: (
-      <>
-        <p>A hybrid. You start with some pre-defined codes from theory, but remain open to new codes emerging from the data.</p>
-        <p style={{ marginTop: "8px" }}>The template is revised as analysis develops. Best for most master's theses — you have a theoretical framework but don't want to miss what the data reveals beyond it.</p>
-        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Example: You enter with augmentation theory but let participants redefine what amplification means in their own terms.</p>
-      </>
-    )
+    content: "Hybrid. Start with pre-defined codes but stay open to new ones emerging. Template revised as analysis develops. Best for most master's theses.",
+    example: "Enter with augmentation theory but let participants redefine terms."
   }
 ];
 
 const REASONING_OPTIONS = [
   {
     title: "INDUCTIVE",
-    content: (
-      <>
-        <p>You reason from the data upward to theory.</p>
-        <p style={{ marginTop: "8px" }}>You make no assumptions before reading — observations accumulate into patterns, patterns into concepts, concepts into theory.</p>
-        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Pair with: Grounded approach.</p>
-      </>
-    )
+    content: "Data → theory. No assumptions before reading — observations accumulate into patterns, patterns into concepts, concepts into theory.",
+    pair: "Grounded approach"
   },
   {
     title: "DEDUCTIVE",
-    content: (
-      <>
-        <p>You reason from theory downward to data.</p>
-        <p style={{ marginTop: "8px" }}>You start with a proposition or hypothesis and test whether your data supports, challenges, or refines it.</p>
-        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Pair with: Content Analysis approach.</p>
-      </>
-    )
+    content: "Theory → data. Start with a proposition or hypothesis and test whether your data supports, challenges, or refines it.",
+    pair: "Content Analysis approach"
   },
   {
     title: "ABDUCTIVE",
-    content: (
-      <>
-        <p>You move back and forth between data and theory.</p>
-        <p style={{ marginTop: "8px" }}>You start with a surprising or puzzling observation, form a tentative explanation, then return to the data to test it. This is the most common mode in interpretive business research — it acknowledges that theory and data shape each other.</p>
-        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Pair with: Template approach.</p>
-      </>
-    )
+    content: "Back and forth. Start with a puzzling observation, form a tentative explanation, then return to data to test it. Most common in interpretive research.",
+    pair: "Template approach"
   }
 ];
 
@@ -93,22 +63,15 @@ const CarouselPopover = ({
   open, 
   onOpenChange 
 }: { 
-  options: typeof APPROACH_OPTIONS;
+  options: { title: string; content: string; example?: string; pair?: string }[];
   title: string;
   footer: string;
   open: boolean; 
   onOpenChange: (v: boolean) => void;
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const opt = options[currentIndex];
   
-  const goToPrevious = () => {
-    setCurrentIndex((prev) => (prev === 0 ? options.length - 1 : prev - 1));
-  };
-  
-  const goToNext = () => {
-    setCurrentIndex((prev) => (prev === options.length - 1 ? 0 : prev + 1));
-  };
-
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
@@ -124,11 +87,7 @@ const CarouselPopover = ({
       <PopoverContent
         style={{
           ...POPOVER_STYLE,
-          width: "min(320px, calc(100vw - 32px))",
-          maxHeight: "min(480px, calc(100vh - 80px))",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
+          width: "min(300px, calc(100vw - 32px))",
         }}
         className="p-0 border-0 shadow-none"
         side="top"
@@ -137,56 +96,28 @@ const CarouselPopover = ({
         collisionPadding={16}
         sideOffset={8}
       >
-        {/* Fixed header */}
-        <div style={{ padding: "16px 20px 12px", flexShrink: 0 }}>
-          <p style={{ fontWeight: 700, fontSize: "14px", color: "#E6EDF3", margin: 0 }}>{title}</p>
-        </div>
+        <div style={{ padding: "14px 18px" }}>
+          <p style={{ fontWeight: 700, fontSize: "13px", color: "#E6EDF3", marginBottom: "10px" }}>{title}</p>
+          <p style={{ fontWeight: 700, fontSize: "12px", color: "#E6EDF3", marginBottom: "4px", letterSpacing: "0.04em" }}>{opt.title}</p>
+          <p style={{ fontSize: "12px", color: "#8B949E", lineHeight: "1.65", margin: 0 }}>{opt.content}</p>
+          {opt.example && (
+            <p style={{ fontSize: "11px", color: "#8B949E", fontStyle: "italic", marginTop: "6px" }}>e.g. "{opt.example}"</p>
+          )}
+          {opt.pair && (
+            <p style={{ fontSize: "11px", color: "#0E9E8A", marginTop: "6px" }}>Pair with: {opt.pair}</p>
+          )}
 
-        {/* Scrollable body */}
-        <div style={{ padding: "0 20px", overflowY: "auto", flex: 1 }}>
-          <p style={{ fontWeight: 700, fontSize: "13px", color: "#E6EDF3", marginBottom: "8px" }}>
-            {options[currentIndex].title}
-          </p>
-          <div style={{ fontSize: "13px", color: "#8B949E", lineHeight: "1.7" }}>
-            {options[currentIndex].content}
-          </div>
-        </div>
-
-        {/* Fixed footer */}
-        <div style={{ padding: "12px 20px 0", flexShrink: 0, borderTop: "1px solid #30363D", marginTop: "12px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button
-              type="button"
-              onClick={goToPrevious}
-              style={{ background: "none", border: "none", color: "#0E9E8A", cursor: "pointer", padding: "4px 8px", fontSize: "13px", fontWeight: 600 }}
-            >
-              ← Prev
-            </button>
-            <div style={{ display: "flex", gap: "6px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "12px", paddingTop: "10px", borderTop: "1px solid #30363D" }}>
+            <button type="button" onClick={() => setCurrentIndex(i => i === 0 ? options.length - 1 : i - 1)} style={{ background: "none", border: "none", color: "#0E9E8A", cursor: "pointer", padding: "2px 6px", fontSize: "12px", fontWeight: 600 }}>← Prev</button>
+            <div style={{ display: "flex", gap: "5px" }}>
               {options.map((_, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setCurrentIndex(idx)}
-                  style={{
-                    width: "8px", height: "8px", borderRadius: "50%",
-                    background: idx === currentIndex ? "#0E9E8A" : "#30363D",
-                    border: "none", cursor: "pointer", padding: 0,
-                  }}
-                />
+                <button key={idx} type="button" onClick={() => setCurrentIndex(idx)} style={{ width: "7px", height: "7px", borderRadius: "50%", background: idx === currentIndex ? "#0E9E8A" : "#30363D", border: "none", cursor: "pointer", padding: 0 }} />
               ))}
             </div>
-            <button
-              type="button"
-              onClick={goToNext}
-              style={{ background: "none", border: "none", color: "#0E9E8A", cursor: "pointer", padding: "4px 8px", fontSize: "13px", fontWeight: 600 }}
-            >
-              Next →
-            </button>
+            <button type="button" onClick={() => setCurrentIndex(i => i === options.length - 1 ? 0 : i + 1)} style={{ background: "none", border: "none", color: "#0E9E8A", cursor: "pointer", padding: "2px 6px", fontSize: "12px", fontWeight: 600 }}>Next →</button>
           </div>
-          <p style={{ fontSize: "12px", color: "#8B949E", fontStyle: "italic", lineHeight: "1.6", marginTop: "10px", marginBottom: "14px" }}>
-            {footer}
-          </p>
+
+          <p style={{ fontSize: "11px", color: "#8B949E", fontStyle: "italic", lineHeight: "1.5", marginTop: "8px" }}>{footer}</p>
         </div>
       </PopoverContent>
     </Popover>
