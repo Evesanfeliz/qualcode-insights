@@ -7,11 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { ArrowLeft, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, Quote } from "lucide-react";
 import { toast } from "sonner";
 
 type Transcript = { id: string; project_id: string; participant_pseudonym: string; content: string };
-type Code = { id: string; project_id: string; label: string; color: string | null };
+type Code = { id: string; project_id: string; label: string; color: string | null; origin: string | null };
 type CodeApplication = { id: string; code_id: string; transcript_id: string; applied_by: string; segment_text: string; start_index: number; end_index: number; note: string | null };
 type ProjectMember = { user_id: string; role: string | null; color_theme: string | null };
 type Project = { id: string; research_question: string | null; domain_framework: string | null; approach: string | null };
@@ -21,6 +21,13 @@ const confidenceBadge: Record<string, string> = {
   high: "border-primary/40 text-primary",
   medium: "border-warning/40 text-warning",
   low: "border-muted-foreground/30 text-muted-foreground",
+};
+
+const originBadgeStyles: Record<string, { label: string; className: string } | null> = {
+  in_vivo: { label: "IN VIVO", className: "border-primary/50 text-primary" },
+  researcher: null,
+  a_priori: { label: "A PRIORI", className: "border-indigo-400/50 text-indigo-400" },
+  ai_suggested: { label: "AI", className: "border-amber-400/50 text-amber-400" },
 };
 
 const CodingWorkspace = () => {
@@ -44,6 +51,7 @@ const CodingWorkspace = () => {
 
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
+  const [showInVivoTooltip, setShowInVivoTooltip] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!projectId || !transcriptId) return;
@@ -98,7 +106,9 @@ const CodingWorkspace = () => {
     let cursor = 0;
     sorted.forEach((app) => {
       if (app.start_index > cursor) parts.push(text.slice(cursor, app.start_index));
-      const codeLabel = codes.find((c) => c.id === app.code_id)?.label || "?";
+      const code = codes.find((c) => c.id === app.code_id);
+      const codeLabel = code?.label || "?";
+      const isInVivo = code?.origin === "in_vivo";
       parts.push(
         <mark
           key={app.id}
@@ -106,11 +116,20 @@ const CodingWorkspace = () => {
             backgroundColor: getHighlightColor(app.applied_by),
             borderLeft: `2px solid ${getHighlightBorder(app.applied_by)}`,
             paddingLeft: "4px",
+            position: "relative",
           }}
-          className="rounded-none"
+          className="group/mark rounded-none"
           title={`${codeLabel} — "${app.segment_text}"`}
         >
           {text.slice(app.start_index, app.end_index)}
+          {isInVivo && (
+            <span
+              className="absolute -top-0.5 -right-0.5 opacity-0 group-hover/mark:opacity-100 transition-opacity font-mono text-[10px] uppercase leading-none pointer-events-none"
+              style={{ color: code?.color || "hsl(var(--primary))" }}
+            >
+              IV
+            </span>
+          )}
         </mark>
       );
       cursor = app.end_index;
@@ -173,12 +192,13 @@ const CodingWorkspace = () => {
     }
   };
 
-  const applyCode = async () => {
+  const applyCode = async (originOverride?: string) => {
     if (!selection || !transcript || !projectId) return;
     try {
       let codeId = selectedCodeId;
       if (newCodeLabel.trim() && !selectedCodeId) {
-        const { data, error } = await supabase.from("codes").insert({ project_id: projectId, label: newCodeLabel.trim() }).select().single();
+        const origin = originOverride || "researcher";
+        const { data, error } = await supabase.from("codes").insert({ project_id: projectId, label: newCodeLabel.trim(), origin }).select().single();
         if (error) throw error;
         codeId = data.id;
       }
@@ -196,6 +216,59 @@ const CodingWorkspace = () => {
       loadData();
     } catch (err: any) {
       toast.error(err.message || "Failed to apply code");
+    }
+  };
+
+  const applyInVivo = async () => {
+    if (!selection || !transcript || !projectId) return;
+    try {
+      let label = selection.text;
+      let truncated = false;
+      if (label.length > 60) {
+        label = label.slice(0, 60) + "…";
+        truncated = true;
+      }
+
+      // Check for existing code with same label
+      const existing = codes.find((c) => c.label === label);
+      let codeId: string;
+
+      if (existing) {
+        codeId = existing.id;
+      } else {
+        const { data, error } = await supabase.from("codes").insert({
+          project_id: projectId, label, origin: "in_vivo",
+        }).select().single();
+        if (error) throw error;
+        codeId = data.id;
+      }
+
+      const { error } = await supabase.from("code_applications").insert({
+        code_id: codeId, transcript_id: transcript.id, applied_by: currentUserId,
+        segment_text: selection.text, start_index: selection.start, end_index: selection.end,
+      });
+      if (error) throw error;
+
+      if (truncated) {
+        toast.info("Code label truncated to 60 chars. The full passage is still saved as the coded segment.");
+      } else {
+        toast.success("In vivo code applied!");
+      }
+
+      // Show educational tooltip on first use
+      const hasSeenTooltip = localStorage.getItem("invivo_tooltip_seen");
+      const hadInVivoBefore = codes.some((c) => c.origin === "in_vivo");
+      if (!hasSeenTooltip && !hadInVivoBefore) {
+        setShowInVivoTooltip(true);
+      }
+
+      setPopoverOpen(false);
+      setSelection(null);
+      setAiSuggestions([]);
+      window.getSelection()?.removeAllRanges();
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to apply in vivo code");
     }
   };
 
@@ -221,6 +294,9 @@ const CodingWorkspace = () => {
     }
   };
 
+  const truncatePreview = (text: string, max: number) =>
+    text.length > max ? `${text.slice(0, max)}…` : text;
+
   if (loading) return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Loading workspace…</p></div>;
   if (!transcript) return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Transcript not found.</p></div>;
 
@@ -243,7 +319,7 @@ const CodingWorkspace = () => {
       </header>
 
       <ResizablePanelGroup direction="horizontal" className="flex-1">
-        {/* Transcript panel — lighter bg for readability */}
+        {/* Transcript panel */}
         <ResizablePanel defaultSize={60} minSize={40}>
           <ScrollArea className="h-full">
             <div className="flex bg-transcript">
@@ -269,7 +345,7 @@ const CodingWorkspace = () => {
 
             {/* Floating popover */}
             {popoverOpen && popoverPos && (
-              <div className="fixed z-50" style={{ left: Math.max(10, popoverPos.x - 160), top: Math.max(10, popoverPos.y - (aiSuggestions.length > 0 ? 420 : 210)) }}>
+              <div className="fixed z-50" style={{ left: Math.max(10, popoverPos.x - 160), top: Math.max(10, popoverPos.y - (aiSuggestions.length > 0 ? 480 : 270)) }}>
                 <div className="w-[320px] rounded-md border border-primary/50 bg-popover p-4 shadow-lg shadow-black/30">
                   <p className="mb-3 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Apply code to selection</p>
                   <div className="space-y-3">
@@ -287,8 +363,24 @@ const CodingWorkspace = () => {
                         {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                         Ask AI
                       </Button>
-                      <Button size="sm" className="flex-1" onClick={applyCode}>Apply</Button>
+                      <Button size="sm" className="flex-1" onClick={() => applyCode()}>Apply</Button>
                     </div>
+
+                    {/* In Vivo button */}
+                    {selection && (
+                      <button
+                        onClick={applyInVivo}
+                        className="w-full rounded-md border border-primary/50 bg-transparent px-3 py-2 text-left transition-colors hover:bg-primary/10"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Quote className="h-3.5 w-3.5 shrink-0 text-primary" />
+                          <span className="text-sm font-medium text-primary">Use exact words</span>
+                        </div>
+                        <p className="mt-1 font-mono text-[11px] text-muted-foreground truncate">
+                          "{truncatePreview(selection.text, 40)}"
+                        </p>
+                      </button>
+                    )}
                   </div>
 
                   {aiSuggestions.length > 0 && (
@@ -334,18 +426,52 @@ const CodingWorkspace = () => {
               <div className="p-3 space-y-0.5">
                 {codes.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-8 text-center">No codes yet. Select text to create your first code.</p>
-                ) : codes.map((code) => (
-                  <button key={code.id} onClick={() => scrollToCode(code.id)} className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors hover:bg-secondary">
-                    <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: code.color || "hsl(var(--primary))" }} />
-                    <span className="flex-1 truncate text-foreground font-body">{code.label}</span>
-                    <span className="font-mono text-[10px] text-muted-foreground tabular-nums">{codeFrequency[code.id] || 0}</span>
-                  </button>
-                ))}
+                ) : codes.map((code) => {
+                  const badge = originBadgeStyles[code.origin || "researcher"];
+                  return (
+                    <button key={code.id} onClick={() => scrollToCode(code.id)} className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm transition-colors hover:bg-secondary">
+                      <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: code.color || "hsl(var(--primary))" }} />
+                      <span className="flex-1 truncate text-foreground font-body">{code.label}</span>
+                      {badge && (
+                        <span className={`shrink-0 rounded-sm border px-1.5 py-0.5 font-mono text-[10px] uppercase leading-none ${badge.className}`}>
+                          {badge.label}
+                        </span>
+                      )}
+                      <span className="font-mono text-[10px] text-muted-foreground tabular-nums">{codeFrequency[code.id] || 0}</span>
+                    </button>
+                  );
+                })}
               </div>
             </ScrollArea>
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
+
+      {/* In Vivo educational tooltip */}
+      {showInVivoTooltip && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+          <div className="w-[360px] rounded-md border border-primary/50 bg-popover p-6 shadow-xl">
+            <h3 className="text-sm font-semibold text-foreground mb-2">In vivo code applied</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+              In vivo codes use the participant's exact words as the label.
+              They preserve the participant's voice and often capture
+              something a paraphrase would lose.
+              Use them alongside your own interpretive codes —
+              not as a replacement for analysis.
+            </p>
+            <Button
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                localStorage.setItem("invivo_tooltip_seen", "true");
+                setShowInVivoTooltip(false);
+              }}
+            >
+              Got it
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
