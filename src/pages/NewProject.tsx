@@ -122,27 +122,39 @@ const CarouselPopover = ({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        style={{ ...POPOVER_STYLE, width: "min(320px, calc(100vw - 32px))" }}
+        style={{
+          ...POPOVER_STYLE,
+          width: "min(320px, calc(100vw - 32px))",
+          maxHeight: "min(480px, calc(100vh - 80px))",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
         className="p-0 border-0 shadow-none"
-        side="bottom"
+        side="top"
         align="start"
         avoidCollisions
         collisionPadding={16}
         sideOffset={8}
       >
-        <div style={{ padding: "16px 20px" }}>
-          <p style={{ fontWeight: 700, fontSize: "14px", color: "#E6EDF3", marginBottom: "12px" }}>{title}</p>
-          
-          <div style={{ minHeight: "180px" }}>
-            <p style={{ fontWeight: 700, fontSize: "13px", color: "#E6EDF3", marginBottom: "8px" }}>
-              {options[currentIndex].title}
-            </p>
-            <div style={{ fontSize: "13px", color: "#8B949E", lineHeight: "1.7" }}>
-              {options[currentIndex].content}
-            </div>
-          </div>
+        {/* Fixed header */}
+        <div style={{ padding: "16px 20px 12px", flexShrink: 0 }}>
+          <p style={{ fontWeight: 700, fontSize: "14px", color: "#E6EDF3", margin: 0 }}>{title}</p>
+        </div>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "16px", paddingTop: "12px", borderTop: "1px solid #30363D" }}>
+        {/* Scrollable body */}
+        <div style={{ padding: "0 20px", overflowY: "auto", flex: 1 }}>
+          <p style={{ fontWeight: 700, fontSize: "13px", color: "#E6EDF3", marginBottom: "8px" }}>
+            {options[currentIndex].title}
+          </p>
+          <div style={{ fontSize: "13px", color: "#8B949E", lineHeight: "1.7" }}>
+            {options[currentIndex].content}
+          </div>
+        </div>
+
+        {/* Fixed footer */}
+        <div style={{ padding: "12px 20px 0", flexShrink: 0, borderTop: "1px solid #30363D", marginTop: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <button
               type="button"
               onClick={goToPrevious}
@@ -157,13 +169,9 @@ const CarouselPopover = ({
                   type="button"
                   onClick={() => setCurrentIndex(idx)}
                   style={{
-                    width: "8px",
-                    height: "8px",
-                    borderRadius: "50%",
+                    width: "8px", height: "8px", borderRadius: "50%",
                     background: idx === currentIndex ? "#0E9E8A" : "#30363D",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: 0
+                    border: "none", cursor: "pointer", padding: 0,
                   }}
                 />
               ))}
@@ -176,8 +184,7 @@ const CarouselPopover = ({
               Next →
             </button>
           </div>
-
-          <p style={{ fontSize: "12px", color: "#8B949E", fontStyle: "italic", lineHeight: "1.6", marginTop: "12px" }}>
+          <p style={{ fontSize: "12px", color: "#8B949E", fontStyle: "italic", lineHeight: "1.6", marginTop: "10px", marginBottom: "14px" }}>
             {footer}
           </p>
         </div>
