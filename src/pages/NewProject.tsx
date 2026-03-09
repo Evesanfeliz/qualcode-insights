@@ -20,97 +20,182 @@ const POPOVER_STYLE = {
   boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
 };
 
-const PopoverDivider = () => (
-  <div style={{ borderTop: "1px solid #30363D", margin: "10px 0" }} />
-);
+const APPROACH_OPTIONS = [
+  {
+    title: "GROUNDED",
+    content: (
+      <>
+        <p>You let the theory emerge from the data.</p>
+        <p style={{ marginTop: "8px" }}>You start with no fixed framework — codes and categories develop from what participants say. Best when your research question is exploratory and you are not testing an existing theory.</p>
+        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Example: 'What does AI mean to solopreneurs?' → you discover the answer.</p>
+      </>
+    )
+  },
+  {
+    title: "CONTENT ANALYSIS",
+    content: (
+      <>
+        <p>You start with a framework and look for evidence of it in the data.</p>
+        <p style={{ marginTop: "8px" }}>Codes are defined before you read the transcripts, derived from existing theory. Best when you are testing or extending a known model.</p>
+        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Example: 'Does Brynjolfsson's augmentation model apply here?' → you test it.</p>
+      </>
+    )
+  },
+  {
+    title: "TEMPLATE",
+    content: (
+      <>
+        <p>A hybrid. You start with some pre-defined codes from theory, but remain open to new codes emerging from the data.</p>
+        <p style={{ marginTop: "8px" }}>The template is revised as analysis develops. Best for most master's theses — you have a theoretical framework but don't want to miss what the data reveals beyond it.</p>
+        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Example: You enter with augmentation theory but let participants redefine what amplification means in their own terms.</p>
+      </>
+    )
+  }
+];
 
-const OptionBlock = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <div>
-    <p style={{ fontWeight: 700, fontSize: "13px", color: "#E6EDF3", marginBottom: "4px" }}>{title}</p>
-    <div style={{ fontSize: "13px", color: "#8B949E", lineHeight: "1.7" }}>{children}</div>
-  </div>
-);
+const REASONING_OPTIONS = [
+  {
+    title: "INDUCTIVE",
+    content: (
+      <>
+        <p>You reason from the data upward to theory.</p>
+        <p style={{ marginTop: "8px" }}>You make no assumptions before reading — observations accumulate into patterns, patterns into concepts, concepts into theory.</p>
+        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Pair with: Grounded approach.</p>
+      </>
+    )
+  },
+  {
+    title: "DEDUCTIVE",
+    content: (
+      <>
+        <p>You reason from theory downward to data.</p>
+        <p style={{ marginTop: "8px" }}>You start with a proposition or hypothesis and test whether your data supports, challenges, or refines it.</p>
+        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Pair with: Content Analysis approach.</p>
+      </>
+    )
+  },
+  {
+    title: "ABDUCTIVE",
+    content: (
+      <>
+        <p>You move back and forth between data and theory.</p>
+        <p style={{ marginTop: "8px" }}>You start with a surprising or puzzling observation, form a tentative explanation, then return to the data to test it. This is the most common mode in interpretive business research — it acknowledges that theory and data shape each other.</p>
+        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Pair with: Template approach.</p>
+      </>
+    )
+  }
+];
+
+const CarouselPopover = ({ 
+  options, 
+  title, 
+  footer,
+  open, 
+  onOpenChange 
+}: { 
+  options: typeof APPROACH_OPTIONS;
+  title: string;
+  footer: string;
+  open: boolean; 
+  onOpenChange: (v: boolean) => void;
+}) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  
+  const goToPrevious = () => {
+    setCurrentIndex((prev) => (prev === 0 ? options.length - 1 : prev - 1));
+  };
+  
+  const goToNext = () => {
+    setCurrentIndex((prev) => (prev === options.length - 1 ? 0 : prev + 1));
+  };
+
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          style={{ color: open ? "#0E9E8A" : "#8B949E", cursor: "pointer", background: "none", border: "none", padding: 0, display: "inline-flex", alignItems: "center" }}
+          onMouseEnter={e => (e.currentTarget.style.color = "#0E9E8A")}
+          onMouseLeave={e => { if (!open) e.currentTarget.style.color = "#8B949E"; }}
+        >
+          <Info size={13} strokeWidth={2} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent style={POPOVER_STYLE} className="p-0 border-0 shadow-none w-auto" sideOffset={8}>
+        <div style={{ padding: "16px 20px", maxWidth: "340px" }}>
+          <p style={{ fontWeight: 700, fontSize: "14px", color: "#E6EDF3", marginBottom: "12px" }}>{title}</p>
+          
+          <div style={{ minHeight: "180px" }}>
+            <p style={{ fontWeight: 700, fontSize: "13px", color: "#E6EDF3", marginBottom: "8px" }}>
+              {options[currentIndex].title}
+            </p>
+            <div style={{ fontSize: "13px", color: "#8B949E", lineHeight: "1.7" }}>
+              {options[currentIndex].content}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "16px", paddingTop: "12px", borderTop: "1px solid #30363D" }}>
+            <button
+              type="button"
+              onClick={goToPrevious}
+              style={{ background: "none", border: "none", color: "#0E9E8A", cursor: "pointer", padding: "4px 8px", fontSize: "13px", fontWeight: 600 }}
+            >
+              ← Prev
+            </button>
+            <div style={{ display: "flex", gap: "6px" }}>
+              {options.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setCurrentIndex(idx)}
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "50%",
+                    background: idx === currentIndex ? "#0E9E8A" : "#30363D",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: 0
+                  }}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={goToNext}
+              style={{ background: "none", border: "none", color: "#0E9E8A", cursor: "pointer", padding: "4px 8px", fontSize: "13px", fontWeight: 600 }}
+            >
+              Next →
+            </button>
+          </div>
+
+          <p style={{ fontSize: "12px", color: "#8B949E", fontStyle: "italic", lineHeight: "1.6", marginTop: "12px" }}>
+            {footer}
+          </p>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const ApproachPopover = ({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) => (
-  <Popover open={open} onOpenChange={onOpenChange}>
-    <PopoverTrigger asChild>
-      <button
-        type="button"
-        style={{ color: open ? "#0E9E8A" : "#8B949E", cursor: "pointer", background: "none", border: "none", padding: 0, display: "inline-flex", alignItems: "center" }}
-        onMouseEnter={e => (e.currentTarget.style.color = "#0E9E8A")}
-        onMouseLeave={e => { if (!open) e.currentTarget.style.color = "#8B949E"; }}
-      >
-        <Info size={13} strokeWidth={2} />
-      </button>
-    </PopoverTrigger>
-    <PopoverContent style={POPOVER_STYLE} className="p-0 border-0 shadow-none w-auto" sideOffset={8}>
-      <div style={{ padding: "16px 20px", maxWidth: "340px" }}>
-        <p style={{ fontWeight: 700, fontSize: "14px", color: "#E6EDF3", marginBottom: "12px" }}>Which approach fits your research?</p>
-        <OptionBlock title="GROUNDED">
-          <p>You let the theory emerge from the data.</p>
-          <p>You start with no fixed framework — codes and categories develop from what participants say. Best when your research question is exploratory and you are not testing an existing theory.</p>
-          <p style={{ marginTop: "4px", fontStyle: "italic" }}>Example: 'What does AI mean to solopreneurs?' → you discover the answer.</p>
-        </OptionBlock>
-        <PopoverDivider />
-        <OptionBlock title="CONTENT ANALYSIS">
-          <p>You start with a framework and look for evidence of it in the data.</p>
-          <p>Codes are defined before you read the transcripts, derived from existing theory. Best when you are testing or extending a known model.</p>
-          <p style={{ marginTop: "4px", fontStyle: "italic" }}>Example: 'Does Brynjolfsson's augmentation model apply here?' → you test it.</p>
-        </OptionBlock>
-        <PopoverDivider />
-        <OptionBlock title="TEMPLATE">
-          <p>A hybrid. You start with some pre-defined codes from theory, but remain open to new codes emerging from the data.</p>
-          <p>The template is revised as analysis develops. Best for most master's theses — you have a theoretical framework but don't want to miss what the data reveals beyond it.</p>
-          <p style={{ marginTop: "4px", fontStyle: "italic" }}>Example: You enter with augmentation theory but let participants redefine what amplification means in their own terms.</p>
-        </OptionBlock>
-        <PopoverDivider />
-        <p style={{ fontSize: "12px", color: "#8B949E", fontStyle: "italic", lineHeight: "1.6" }}>
-          Not sure? Template Analysis is the most common choice for business and management master's theses.
-        </p>
-      </div>
-    </PopoverContent>
-  </Popover>
+  <CarouselPopover
+    options={APPROACH_OPTIONS}
+    title="Which approach fits your research?"
+    footer="Not sure? Template Analysis is the most common choice for business and management master's theses."
+    open={open}
+    onOpenChange={onOpenChange}
+  />
 );
 
 const ReasoningPopover = ({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) => (
-  <Popover open={open} onOpenChange={onOpenChange}>
-    <PopoverTrigger asChild>
-      <button
-        type="button"
-        style={{ color: open ? "#0E9E8A" : "#8B949E", cursor: "pointer", background: "none", border: "none", padding: 0, display: "inline-flex", alignItems: "center" }}
-        onMouseEnter={e => (e.currentTarget.style.color = "#0E9E8A")}
-        onMouseLeave={e => { if (!open) e.currentTarget.style.color = "#8B949E"; }}
-      >
-        <Info size={13} strokeWidth={2} />
-      </button>
-    </PopoverTrigger>
-    <PopoverContent style={POPOVER_STYLE} className="p-0 border-0 shadow-none w-auto" sideOffset={8}>
-      <div style={{ padding: "16px 20px", maxWidth: "340px" }}>
-        <p style={{ fontWeight: 700, fontSize: "14px", color: "#E6EDF3", marginBottom: "12px" }}>How will you move between data and theory?</p>
-        <OptionBlock title="INDUCTIVE">
-          <p>You reason from the data upward to theory.</p>
-          <p>You make no assumptions before reading — observations accumulate into patterns, patterns into concepts, concepts into theory.</p>
-          <p style={{ marginTop: "4px", fontStyle: "italic" }}>Pair with: Grounded approach.</p>
-        </OptionBlock>
-        <PopoverDivider />
-        <OptionBlock title="DEDUCTIVE">
-          <p>You reason from theory downward to data.</p>
-          <p>You start with a proposition or hypothesis and test whether your data supports, challenges, or refines it.</p>
-          <p style={{ marginTop: "4px", fontStyle: "italic" }}>Pair with: Content Analysis approach.</p>
-        </OptionBlock>
-        <PopoverDivider />
-        <OptionBlock title="ABDUCTIVE">
-          <p>You move back and forth between data and theory.</p>
-          <p>You start with a surprising or puzzling observation, form a tentative explanation, then return to the data to test it. This is the most common mode in interpretive business research — it acknowledges that theory and data shape each other.</p>
-          <p style={{ marginTop: "4px", fontStyle: "italic" }}>Pair with: Template approach.</p>
-        </OptionBlock>
-        <PopoverDivider />
-        <p style={{ fontSize: "12px", color: "#8B949E", fontStyle: "italic", lineHeight: "1.6" }}>
-          Abductive reasoning is the most common choice for qualitative business and management research.
-        </p>
-      </div>
-    </PopoverContent>
-  </Popover>
+  <CarouselPopover
+    options={REASONING_OPTIONS}
+    title="How will you move between data and theory?"
+    footer="Abductive reasoning is the most common choice for qualitative business and management research."
+    open={open}
+    onOpenChange={onOpenChange}
+  />
 );
 
 const DomainFrameworkField = ({
