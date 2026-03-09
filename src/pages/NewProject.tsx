@@ -277,7 +277,13 @@ const NewProject = () => {
 
               <div className="grid gap-6 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Analytical Approach</Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label>Analytical Approach</Label>
+                    <ApproachPopover
+                      open={openPopover === "approach"}
+                      onOpenChange={(v) => setOpenPopover(v ? "approach" : null)}
+                    />
+                  </div>
                   <Select
                     value={form.approach}
                     onValueChange={(v) => setForm({ ...form, approach: v })}
@@ -294,7 +300,13 @@ const NewProject = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Reasoning Mode</Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label>Reasoning Mode</Label>
+                    <ReasoningPopover
+                      open={openPopover === "reasoning"}
+                      onOpenChange={(v) => setOpenPopover(v ? "reasoning" : null)}
+                    />
+                  </div>
                   <Select
                     value={form.reasoning_mode}
                     onValueChange={(v) => setForm({ ...form, reasoning_mode: v })}
