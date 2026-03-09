@@ -11,6 +11,108 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ArrowLeft, Upload, X, Info } from "lucide-react";
 import { toast } from "sonner";
 
+const POPOVER_STYLE = {
+  background: "#1C2333",
+  border: "1px solid #0E9E8A",
+  borderRadius: "8px",
+  padding: "16px 20px",
+  maxWidth: "340px",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+};
+
+const PopoverDivider = () => (
+  <div style={{ borderTop: "1px solid #30363D", margin: "10px 0" }} />
+);
+
+const OptionBlock = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <div>
+    <p style={{ fontWeight: 700, fontSize: "13px", color: "#E6EDF3", marginBottom: "4px" }}>{title}</p>
+    <div style={{ fontSize: "13px", color: "#8B949E", lineHeight: "1.7" }}>{children}</div>
+  </div>
+);
+
+const ApproachPopover = ({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) => (
+  <Popover open={open} onOpenChange={onOpenChange}>
+    <PopoverTrigger asChild>
+      <button
+        type="button"
+        style={{ color: open ? "#0E9E8A" : "#8B949E", cursor: "pointer", background: "none", border: "none", padding: 0, display: "inline-flex", alignItems: "center" }}
+        onMouseEnter={e => (e.currentTarget.style.color = "#0E9E8A")}
+        onMouseLeave={e => { if (!open) e.currentTarget.style.color = "#8B949E"; }}
+      >
+        <Info size={13} strokeWidth={2} />
+      </button>
+    </PopoverTrigger>
+    <PopoverContent style={POPOVER_STYLE} className="p-0 border-0 shadow-none w-auto" sideOffset={8}>
+      <div style={{ padding: "16px 20px", maxWidth: "340px" }}>
+        <p style={{ fontWeight: 700, fontSize: "14px", color: "#E6EDF3", marginBottom: "12px" }}>Which approach fits your research?</p>
+        <OptionBlock title="GROUNDED">
+          <p>You let the theory emerge from the data.</p>
+          <p>You start with no fixed framework — codes and categories develop from what participants say. Best when your research question is exploratory and you are not testing an existing theory.</p>
+          <p style={{ marginTop: "4px", fontStyle: "italic" }}>Example: 'What does AI mean to solopreneurs?' → you discover the answer.</p>
+        </OptionBlock>
+        <PopoverDivider />
+        <OptionBlock title="CONTENT ANALYSIS">
+          <p>You start with a framework and look for evidence of it in the data.</p>
+          <p>Codes are defined before you read the transcripts, derived from existing theory. Best when you are testing or extending a known model.</p>
+          <p style={{ marginTop: "4px", fontStyle: "italic" }}>Example: 'Does Brynjolfsson's augmentation model apply here?' → you test it.</p>
+        </OptionBlock>
+        <PopoverDivider />
+        <OptionBlock title="TEMPLATE">
+          <p>A hybrid. You start with some pre-defined codes from theory, but remain open to new codes emerging from the data.</p>
+          <p>The template is revised as analysis develops. Best for most master's theses — you have a theoretical framework but don't want to miss what the data reveals beyond it.</p>
+          <p style={{ marginTop: "4px", fontStyle: "italic" }}>Example: You enter with augmentation theory but let participants redefine what amplification means in their own terms.</p>
+        </OptionBlock>
+        <PopoverDivider />
+        <p style={{ fontSize: "12px", color: "#8B949E", fontStyle: "italic", lineHeight: "1.6" }}>
+          Not sure? Template Analysis is the most common choice for business and management master's theses.
+        </p>
+      </div>
+    </PopoverContent>
+  </Popover>
+);
+
+const ReasoningPopover = ({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) => (
+  <Popover open={open} onOpenChange={onOpenChange}>
+    <PopoverTrigger asChild>
+      <button
+        type="button"
+        style={{ color: open ? "#0E9E8A" : "#8B949E", cursor: "pointer", background: "none", border: "none", padding: 0, display: "inline-flex", alignItems: "center" }}
+        onMouseEnter={e => (e.currentTarget.style.color = "#0E9E8A")}
+        onMouseLeave={e => { if (!open) e.currentTarget.style.color = "#8B949E"; }}
+      >
+        <Info size={13} strokeWidth={2} />
+      </button>
+    </PopoverTrigger>
+    <PopoverContent style={POPOVER_STYLE} className="p-0 border-0 shadow-none w-auto" sideOffset={8}>
+      <div style={{ padding: "16px 20px", maxWidth: "340px" }}>
+        <p style={{ fontWeight: 700, fontSize: "14px", color: "#E6EDF3", marginBottom: "12px" }}>How will you move between data and theory?</p>
+        <OptionBlock title="INDUCTIVE">
+          <p>You reason from the data upward to theory.</p>
+          <p>You make no assumptions before reading — observations accumulate into patterns, patterns into concepts, concepts into theory.</p>
+          <p style={{ marginTop: "4px", fontStyle: "italic" }}>Pair with: Grounded approach.</p>
+        </OptionBlock>
+        <PopoverDivider />
+        <OptionBlock title="DEDUCTIVE">
+          <p>You reason from theory downward to data.</p>
+          <p>You start with a proposition or hypothesis and test whether your data supports, challenges, or refines it.</p>
+          <p style={{ marginTop: "4px", fontStyle: "italic" }}>Pair with: Content Analysis approach.</p>
+        </OptionBlock>
+        <PopoverDivider />
+        <OptionBlock title="ABDUCTIVE">
+          <p>You move back and forth between data and theory.</p>
+          <p>You start with a surprising or puzzling observation, form a tentative explanation, then return to the data to test it. This is the most common mode in interpretive business research — it acknowledges that theory and data shape each other.</p>
+          <p style={{ marginTop: "4px", fontStyle: "italic" }}>Pair with: Template approach.</p>
+        </OptionBlock>
+        <PopoverDivider />
+        <p style={{ fontSize: "12px", color: "#8B949E", fontStyle: "italic", lineHeight: "1.6" }}>
+          Abductive reasoning is the most common choice for qualitative business and management research.
+        </p>
+      </div>
+    </PopoverContent>
+  </Popover>
+);
+
 const DomainFrameworkField = ({
   value,
   onChange,
