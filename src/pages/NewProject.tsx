@@ -121,8 +121,16 @@ const CarouselPopover = ({
           <Info size={13} strokeWidth={2} />
         </button>
       </PopoverTrigger>
-      <PopoverContent style={POPOVER_STYLE} className="p-0 border-0 shadow-none w-auto" sideOffset={8}>
-        <div style={{ padding: "16px 20px", maxWidth: "340px" }}>
+      <PopoverContent
+        style={{ ...POPOVER_STYLE, width: "min(320px, calc(100vw - 32px))" }}
+        className="p-0 border-0 shadow-none"
+        side="bottom"
+        align="start"
+        avoidCollisions
+        collisionPadding={16}
+        sideOffset={8}
+      >
+        <div style={{ padding: "16px 20px" }}>
           <p style={{ fontWeight: 700, fontSize: "14px", color: "#E6EDF3", marginBottom: "12px" }}>{title}</p>
           
           <div style={{ minHeight: "180px" }}>
