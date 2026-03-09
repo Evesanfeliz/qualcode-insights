@@ -227,6 +227,7 @@ export type Database = {
           id: string
           inclusion_criteria: string | null
           label: string
+          origin: string | null
           parent_code_id: string | null
           project_id: string
           researcher_confirmed: boolean | null
@@ -243,6 +244,7 @@ export type Database = {
           id?: string
           inclusion_criteria?: string | null
           label: string
+          origin?: string | null
           parent_code_id?: string | null
           project_id: string
           researcher_confirmed?: boolean | null
@@ -259,6 +261,7 @@ export type Database = {
           id?: string
           inclusion_criteria?: string | null
           label?: string
+          origin?: string | null
           parent_code_id?: string | null
           project_id?: string
           researcher_confirmed?: boolean | null
