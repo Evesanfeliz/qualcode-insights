@@ -23,66 +23,36 @@ const POPOVER_STYLE = {
 const APPROACH_OPTIONS = [
   {
     title: "GROUNDED",
-    content: (
-      <>
-        <p>You let the theory emerge from the data.</p>
-        <p style={{ marginTop: "8px" }}>You start with no fixed framework — codes and categories develop from what participants say. Best when your research question is exploratory and you are not testing an existing theory.</p>
-        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Example: 'What does AI mean to solopreneurs?' → you discover the answer.</p>
-      </>
-    )
+    content: "Theory emerges from data. No fixed framework — codes develop from what participants say. Best for exploratory research.",
+    example: "What does AI mean to solopreneurs?"
   },
   {
     title: "CONTENT ANALYSIS",
-    content: (
-      <>
-        <p>You start with a framework and look for evidence of it in the data.</p>
-        <p style={{ marginTop: "8px" }}>Codes are defined before you read the transcripts, derived from existing theory. Best when you are testing or extending a known model.</p>
-        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Example: 'Does Brynjolfsson's augmentation model apply here?' → you test it.</p>
-      </>
-    )
+    content: "Start with a framework and look for evidence. Codes defined beforehand from existing theory. Best for testing or extending known models.",
+    example: "Does Brynjolfsson's augmentation model apply here?"
   },
   {
     title: "TEMPLATE",
-    content: (
-      <>
-        <p>A hybrid. You start with some pre-defined codes from theory, but remain open to new codes emerging from the data.</p>
-        <p style={{ marginTop: "8px" }}>The template is revised as analysis develops. Best for most master's theses — you have a theoretical framework but don't want to miss what the data reveals beyond it.</p>
-        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Example: You enter with augmentation theory but let participants redefine what amplification means in their own terms.</p>
-      </>
-    )
+    content: "Hybrid. Start with pre-defined codes but stay open to new ones emerging. Template revised as analysis develops. Best for most master's theses.",
+    example: "Enter with augmentation theory but let participants redefine terms."
   }
 ];
 
 const REASONING_OPTIONS = [
   {
     title: "INDUCTIVE",
-    content: (
-      <>
-        <p>You reason from the data upward to theory.</p>
-        <p style={{ marginTop: "8px" }}>You make no assumptions before reading — observations accumulate into patterns, patterns into concepts, concepts into theory.</p>
-        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Pair with: Grounded approach.</p>
-      </>
-    )
+    content: "Data → theory. No assumptions before reading — observations accumulate into patterns, patterns into concepts, concepts into theory.",
+    pair: "Grounded approach"
   },
   {
     title: "DEDUCTIVE",
-    content: (
-      <>
-        <p>You reason from theory downward to data.</p>
-        <p style={{ marginTop: "8px" }}>You start with a proposition or hypothesis and test whether your data supports, challenges, or refines it.</p>
-        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Pair with: Content Analysis approach.</p>
-      </>
-    )
+    content: "Theory → data. Start with a proposition or hypothesis and test whether your data supports, challenges, or refines it.",
+    pair: "Content Analysis approach"
   },
   {
     title: "ABDUCTIVE",
-    content: (
-      <>
-        <p>You move back and forth between data and theory.</p>
-        <p style={{ marginTop: "8px" }}>You start with a surprising or puzzling observation, form a tentative explanation, then return to the data to test it. This is the most common mode in interpretive business research — it acknowledges that theory and data shape each other.</p>
-        <p style={{ marginTop: "8px", fontStyle: "italic", fontSize: "12px" }}>Pair with: Template approach.</p>
-      </>
-    )
+    content: "Back and forth. Start with a puzzling observation, form a tentative explanation, then return to data to test it. Most common in interpretive research.",
+    pair: "Template approach"
   }
 ];
 
