@@ -122,46 +122,6 @@ const CarouselPopover = ({
       </PopoverContent>
     </Popover>
   );
-
-        {/* Fixed footer */}
-        <div style={{ padding: "12px 20px 0", flexShrink: 0, borderTop: "1px solid #30363D", marginTop: "12px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <button
-              type="button"
-              onClick={goToPrevious}
-              style={{ background: "none", border: "none", color: "#0E9E8A", cursor: "pointer", padding: "4px 8px", fontSize: "13px", fontWeight: 600 }}
-            >
-              ← Prev
-            </button>
-            <div style={{ display: "flex", gap: "6px" }}>
-              {options.map((_, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setCurrentIndex(idx)}
-                  style={{
-                    width: "8px", height: "8px", borderRadius: "50%",
-                    background: idx === currentIndex ? "#0E9E8A" : "#30363D",
-                    border: "none", cursor: "pointer", padding: 0,
-                  }}
-                />
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={goToNext}
-              style={{ background: "none", border: "none", color: "#0E9E8A", cursor: "pointer", padding: "4px 8px", fontSize: "13px", fontWeight: 600 }}
-            >
-              Next →
-            </button>
-          </div>
-          <p style={{ fontSize: "12px", color: "#8B949E", fontStyle: "italic", lineHeight: "1.6", marginTop: "10px", marginBottom: "14px" }}>
-            {footer}
-          </p>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
 };
 
 const ApproachPopover = ({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) => (
