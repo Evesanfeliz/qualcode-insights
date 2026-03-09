@@ -194,6 +194,7 @@ const DomainFrameworkField = ({
 const NewProject = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [openPopover, setOpenPopover] = useState<"approach" | "reasoning" | null>(null);
   const [form, setForm] = useState({
     title: "",
     research_question: "",
