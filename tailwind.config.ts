@@ -14,9 +14,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        heading: ["Instrument Serif", "Georgia", "serif"],
-        body: ["IBM Plex Sans", "system-ui", "sans-serif"],
-        mono: ["IBM Plex Mono", "monospace"],
+        heading: ["Source Serif 4", "Georgia", "serif"],
+        body: ["Inter", "system-ui", "sans-serif"],
+        mono: ["SFMono-Regular", "Consolas", "Liberation Mono", "Menlo", "monospace"],
       },
       fontSize: {
         "2xs": ["0.625rem", { lineHeight: "1" }],
