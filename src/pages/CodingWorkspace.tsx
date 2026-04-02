@@ -24,10 +24,10 @@ const confidenceBadge: Record<string, string> = {
 };
 
 const originBadgeStyles: Record<string, { label: string; className: string } | null> = {
-  in_vivo: { label: "IN VIVO", className: "border-primary/50 text-primary" },
+  in_vivo: { label: "IN VIVO", className: "border-primary/60 text-primary" },
   researcher: null,
-  a_priori: { label: "A PRIORI", className: "border-indigo-400/50 text-indigo-400" },
-  ai_suggested: { label: "AI", className: "border-amber-400/50 text-amber-400" },
+  a_priori: { label: "A PRIORI", className: "border-indigo-500/60 text-indigo-600" },
+  ai_suggested: { label: "AI", className: "border-amber-500/60 text-amber-600" },
 };
 
 const CodingWorkspace = () => {
@@ -83,18 +83,13 @@ const CodingWorkspace = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const getHighlightColor = (userId: string) => {
-    const memberIdx = members.findIndex((m) => m.user_id === userId);
-    if (memberIdx === 0) return "rgba(14, 158, 138, 0.18)";
-    if (memberIdx === 1) return "rgba(74, 108, 247, 0.18)";
-    return "rgba(14, 158, 138, 0.18)";
-  };
-
-  const getHighlightBorder = (userId: string) => {
-    const memberIdx = members.findIndex((m) => m.user_id === userId);
-    if (memberIdx === 0) return "hsl(var(--primary))";
-    if (memberIdx === 1) return "hsl(var(--accent))";
-    return "hsl(var(--primary))";
+  const getHighlightColor = (codeColor: string | null) => {
+    const hex = codeColor || "#0E9E8A";
+    // Convert hex to rgba with low opacity for light bg
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    return `rgba(${r}, ${g}, ${b}, 0.12)`;
   };
 
   const renderedContent = useMemo(() => {
@@ -109,12 +104,13 @@ const CodingWorkspace = () => {
       const code = codes.find((c) => c.id === app.code_id);
       const codeLabel = code?.label || "?";
       const isInVivo = code?.origin === "in_vivo";
+      const codeColor = code?.color || "#0E9E8A";
       parts.push(
         <mark
           key={app.id}
           style={{
-            backgroundColor: getHighlightColor(app.applied_by),
-            borderLeft: `2px solid ${getHighlightBorder(app.applied_by)}`,
+            backgroundColor: getHighlightColor(codeColor),
+            borderLeft: `2px solid ${codeColor}`,
             paddingLeft: "4px",
             position: "relative",
           }}
@@ -124,8 +120,8 @@ const CodingWorkspace = () => {
           {text.slice(app.start_index, app.end_index)}
           {isInVivo && (
             <span
-              className="absolute -top-0.5 -right-0.5 opacity-0 group-hover/mark:opacity-100 transition-opacity font-mono text-[10px] uppercase leading-none pointer-events-none"
-              style={{ color: code?.color || "hsl(var(--primary))" }}
+              className="absolute -top-0.5 -right-0.5 opacity-0 group-hover/mark:opacity-100 transition-opacity text-[10px] uppercase leading-none pointer-events-none"
+              style={{ color: codeColor }}
             >
               IV
             </span>
@@ -136,7 +132,7 @@ const CodingWorkspace = () => {
     });
     if (cursor < text.length) parts.push(text.slice(cursor));
     return parts;
-  }, [transcript, applications, codes, members]);
+  }, [transcript, applications, codes]);
 
   const handleMouseUp = () => {
     const sel = window.getSelection();
@@ -300,8 +296,6 @@ const CodingWorkspace = () => {
   if (loading) return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Loading workspace…</p></div>;
   if (!transcript) return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Transcript not found.</p></div>;
 
-  const lines = transcript.content.split("\n");
-
   return (
     <div className="flex h-screen flex-col bg-background">
       {/* Header */}
@@ -322,32 +316,21 @@ const CodingWorkspace = () => {
         {/* Transcript panel */}
         <ResizablePanel defaultSize={60} minSize={40}>
           <ScrollArea className="h-full">
-            <div className="flex bg-transcript">
-              {/* Line numbers gutter */}
-              <div className="shrink-0 select-none border-r border-transcript-line px-3 py-6 text-right">
-                {lines.map((_, i) => (
-                  <div key={i} className="font-mono text-[11px] leading-7 text-muted-foreground/40">
-                    {i + 1}
-                  </div>
-                ))}
-              </div>
-              {/* Content */}
-              <div className="flex-1 p-6">
-                <div
-                  ref={contentRef}
-                  className="whitespace-pre-wrap font-mono text-[13px] leading-7 text-transcript-foreground selection:bg-primary/25"
-                  onMouseUp={handleMouseUp}
-                >
-                  {renderedContent}
-                </div>
+            <div className="p-8">
+              <div
+                ref={contentRef}
+                className="whitespace-pre-wrap font-body text-[14px] leading-[1.8] text-foreground selection:bg-primary/20"
+                onMouseUp={handleMouseUp}
+              >
+                {renderedContent}
               </div>
             </div>
 
             {/* Floating popover */}
             {popoverOpen && popoverPos && (
               <div className="fixed z-50" style={{ left: Math.max(10, popoverPos.x - 160), top: Math.max(10, popoverPos.y - (aiSuggestions.length > 0 ? 480 : 270)) }}>
-                <div className="w-[320px] rounded-md border border-primary/50 bg-popover p-4 shadow-lg shadow-black/30">
-                  <p className="mb-3 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Apply code to selection</p>
+                <div className="w-[320px] rounded-lg border border-border bg-card p-4 shadow-lg">
+                  <p className="mb-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Apply code to selection</p>
                   <div className="space-y-3">
                     <Input placeholder="New code name..." value={newCodeLabel} onChange={(e) => { setNewCodeLabel(e.target.value); if (e.target.value) setSelectedCodeId(""); }} className="h-8 text-sm" />
                     <div className="flex items-center gap-2">
