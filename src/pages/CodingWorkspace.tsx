@@ -300,8 +300,6 @@ const CodingWorkspace = () => {
   if (loading) return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Loading workspace…</p></div>;
   if (!transcript) return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Transcript not found.</p></div>;
 
-  const lines = transcript.content.split("\n");
-
   return (
     <div className="flex h-screen flex-col bg-background">
       {/* Header */}
@@ -322,32 +320,21 @@ const CodingWorkspace = () => {
         {/* Transcript panel */}
         <ResizablePanel defaultSize={60} minSize={40}>
           <ScrollArea className="h-full">
-            <div className="flex bg-transcript">
-              {/* Line numbers gutter */}
-              <div className="shrink-0 select-none border-r border-transcript-line px-3 py-6 text-right">
-                {lines.map((_, i) => (
-                  <div key={i} className="font-mono text-[11px] leading-7 text-muted-foreground/40">
-                    {i + 1}
-                  </div>
-                ))}
-              </div>
-              {/* Content */}
-              <div className="flex-1 p-6">
-                <div
-                  ref={contentRef}
-                  className="whitespace-pre-wrap font-mono text-[13px] leading-7 text-transcript-foreground selection:bg-primary/25"
-                  onMouseUp={handleMouseUp}
-                >
-                  {renderedContent}
-                </div>
+            <div className="p-8">
+              <div
+                ref={contentRef}
+                className="whitespace-pre-wrap font-body text-[14px] leading-[1.8] text-foreground selection:bg-primary/20"
+                onMouseUp={handleMouseUp}
+              >
+                {renderedContent}
               </div>
             </div>
 
             {/* Floating popover */}
             {popoverOpen && popoverPos && (
               <div className="fixed z-50" style={{ left: Math.max(10, popoverPos.x - 160), top: Math.max(10, popoverPos.y - (aiSuggestions.length > 0 ? 480 : 270)) }}>
-                <div className="w-[320px] rounded-md border border-primary/50 bg-popover p-4 shadow-lg shadow-black/30">
-                  <p className="mb-3 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Apply code to selection</p>
+                <div className="w-[320px] rounded-lg border border-border bg-card p-4 shadow-lg">
+                  <p className="mb-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Apply code to selection</p>
                   <div className="space-y-3">
                     <Input placeholder="New code name..." value={newCodeLabel} onChange={(e) => { setNewCodeLabel(e.target.value); if (e.target.value) setSelectedCodeId(""); }} className="h-8 text-sm" />
                     <div className="flex items-center gap-2">
