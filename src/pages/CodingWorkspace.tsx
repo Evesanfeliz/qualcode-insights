@@ -24,10 +24,10 @@ const confidenceBadge: Record<string, string> = {
 };
 
 const originBadgeStyles: Record<string, { label: string; className: string } | null> = {
-  in_vivo: { label: "IN VIVO", className: "border-primary/50 text-primary" },
+  in_vivo: { label: "IN VIVO", className: "border-primary/60 text-primary" },
   researcher: null,
-  a_priori: { label: "A PRIORI", className: "border-indigo-400/50 text-indigo-400" },
-  ai_suggested: { label: "AI", className: "border-amber-400/50 text-amber-400" },
+  a_priori: { label: "A PRIORI", className: "border-indigo-500/60 text-indigo-600" },
+  ai_suggested: { label: "AI", className: "border-amber-500/60 text-amber-600" },
 };
 
 const CodingWorkspace = () => {
