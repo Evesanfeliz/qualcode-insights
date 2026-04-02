@@ -231,6 +231,7 @@ export type Database = {
           parent_code_id: string | null
           project_id: string
           researcher_confirmed: boolean | null
+          theory_id: string | null
         }
         Insert: {
           ai_suggested?: boolean | null
@@ -248,6 +249,7 @@ export type Database = {
           parent_code_id?: string | null
           project_id: string
           researcher_confirmed?: boolean | null
+          theory_id?: string | null
         }
         Update: {
           ai_suggested?: boolean | null
@@ -265,6 +267,7 @@ export type Database = {
           parent_code_id?: string | null
           project_id?: string
           researcher_confirmed?: boolean | null
+          theory_id?: string | null
         }
         Relationships: [
           {
@@ -279,6 +282,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "codes_theory_id_fkey"
+            columns: ["theory_id"]
+            isOneToOne: false
+            referencedRelation: "theories"
             referencedColumns: ["id"]
           },
         ]
@@ -661,6 +671,41 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      theories: {
+        Row: {
+          color: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          project_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          project_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "theories_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       theory_propositions: {
         Row: {
