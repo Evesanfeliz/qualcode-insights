@@ -83,18 +83,13 @@ const CodingWorkspace = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const getHighlightColor = (userId: string) => {
-    const memberIdx = members.findIndex((m) => m.user_id === userId);
-    if (memberIdx === 0) return "rgba(14, 158, 138, 0.18)";
-    if (memberIdx === 1) return "rgba(74, 108, 247, 0.18)";
-    return "rgba(14, 158, 138, 0.18)";
-  };
-
-  const getHighlightBorder = (userId: string) => {
-    const memberIdx = members.findIndex((m) => m.user_id === userId);
-    if (memberIdx === 0) return "hsl(var(--primary))";
-    if (memberIdx === 1) return "hsl(var(--accent))";
-    return "hsl(var(--primary))";
+  const getHighlightColor = (codeColor: string | null) => {
+    const hex = codeColor || "#0E9E8A";
+    // Convert hex to rgba with low opacity for light bg
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    return `rgba(${r}, ${g}, ${b}, 0.12)`;
   };
 
   const renderedContent = useMemo(() => {
@@ -109,12 +104,13 @@ const CodingWorkspace = () => {
       const code = codes.find((c) => c.id === app.code_id);
       const codeLabel = code?.label || "?";
       const isInVivo = code?.origin === "in_vivo";
+      const codeColor = code?.color || "#0E9E8A";
       parts.push(
         <mark
           key={app.id}
           style={{
-            backgroundColor: getHighlightColor(app.applied_by),
-            borderLeft: `2px solid ${getHighlightBorder(app.applied_by)}`,
+            backgroundColor: getHighlightColor(codeColor),
+            borderLeft: `2px solid ${codeColor}`,
             paddingLeft: "4px",
             position: "relative",
           }}
@@ -124,8 +120,8 @@ const CodingWorkspace = () => {
           {text.slice(app.start_index, app.end_index)}
           {isInVivo && (
             <span
-              className="absolute -top-0.5 -right-0.5 opacity-0 group-hover/mark:opacity-100 transition-opacity font-mono text-[10px] uppercase leading-none pointer-events-none"
-              style={{ color: code?.color || "hsl(var(--primary))" }}
+              className="absolute -top-0.5 -right-0.5 opacity-0 group-hover/mark:opacity-100 transition-opacity text-[10px] uppercase leading-none pointer-events-none"
+              style={{ color: codeColor }}
             >
               IV
             </span>
@@ -136,7 +132,7 @@ const CodingWorkspace = () => {
     });
     if (cursor < text.length) parts.push(text.slice(cursor));
     return parts;
-  }, [transcript, applications, codes, members]);
+  }, [transcript, applications, codes]);
 
   const handleMouseUp = () => {
     const sel = window.getSelection();
