@@ -1,7 +1,7 @@
 
 -- Table: theory_propositions
 CREATE TABLE public.theory_propositions (
-  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   statement TEXT NOT NULL,
   supporting_codes TEXT[],
@@ -56,7 +56,7 @@ CREATE POLICY "Project members can delete theory propositions"
 
 -- Table: literature_bridges
 CREATE TABLE public.literature_bridges (
-  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   researcher_element TEXT NOT NULL,
   literature_concept TEXT NOT NULL,

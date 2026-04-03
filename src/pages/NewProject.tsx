@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { extractTextFromDocument, getDocumentExtension, isSupportedDocumentExtension } from "@/lib/document-text";
 import { ArrowLeft, Upload, X, Info } from "lucide-react";
 import { toast } from "sonner";
 
@@ -156,13 +157,21 @@ const DomainFrameworkField = ({
   const [reading, setReading] = useState(false);
 
   const handleFile = async (file: File) => {
+    const extension = getDocumentExtension(file.name);
+    if (!isSupportedDocumentExtension(extension)) {
+      toast.error("Unsupported file type. Use .txt, .md, .pdf, .doc, or .docx.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+
     setReading(true);
     try {
-      const text = await file.text();
+      const { text, warning } = await extractTextFromDocument(file);
       onChange(value ? value + "\n\n" + text : text);
       setFileName(file.name);
-    } catch {
-      // silently fail
+      if (warning) toast.warning(warning);
+    } catch (error: any) {
+      toast.error(error.message || "Could not read the uploaded file.");
     } finally {
       setReading(false);
     }
@@ -208,10 +217,13 @@ const DomainFrameworkField = ({
           </span>
         )}
       </div>
+      <p className="text-xs text-muted-foreground">
+        Upload notes in `.txt`, `.md`, `.pdf`, `.doc`, or `.docx`.
+      </p>
       <input
         ref={fileRef}
         type="file"
-        accept=".txt,.md,.doc,.docx,.pdf"
+        accept=".txt,.md,.pdf,.doc,.docx"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];

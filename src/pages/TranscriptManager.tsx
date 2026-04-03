@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { extractTextFromDocument } from "@/lib/document-text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Upload, FileText, Calendar, User, BookOpen, StickyNote, BookMarked, Lightbulb, Network, ChevronRight, HelpCircle } from "lucide-react";
+import { ArrowLeft, Upload, FileText, Calendar, User, BookOpen, StickyNote, BookMarked, Lightbulb, Network, ChevronRight, HelpCircle, X } from "lucide-react";
 import { HelpModal } from "@/components/HelpModal";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -60,6 +61,7 @@ const TranscriptManager = () => {
     assignedTo: "",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadData = useCallback(async () => {
     if (!projectId) return;
@@ -102,12 +104,8 @@ const TranscriptManager = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      let content = "";
-      if (selectedFile.name.endsWith(".txt")) {
-        content = await selectedFile.text();
-      } else if (selectedFile.name.endsWith(".pdf")) {
-        content = await selectedFile.text();
-      }
+      const { text: content, warning } = await extractTextFromDocument(selectedFile);
+      if (warning) toast.warning(warning);
 
       const filePath = `${projectId}/${crypto.randomUUID()}-${selectedFile.name}`;
       const { error: uploadError } = await supabase.storage
@@ -253,14 +251,66 @@ const TranscriptManager = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="file">Transcript File (.txt or .pdf) *</Label>
-                  <Input
-                    id="file"
-                    type="file"
-                    accept=".txt,.pdf"
-                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                    required
-                  />
+                  <Label htmlFor="file">Transcript File (.txt, .md, .pdf, .doc, or .docx) *</Label>
+                  <div className="rounded-xl border border-dashed border-primary/25 bg-gradient-to-br from-secondary/30 via-background to-secondary/10 p-5">
+                    <div className="flex flex-col items-start gap-4 text-left">
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-foreground">
+                          Select the transcript document to upload
+                        </p>
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          Accepted formats: .txt, .md, .pdf, .doc, and .docx
+                        </p>
+                      </div>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload className="h-4 w-4" />
+                        {selectedFile ? "Replace File" : "Select Transcript File"}
+                      </Button>
+                    </div>
+
+                    {selectedFile ? (
+                      <div className="mt-4 flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-3 text-sm text-foreground shadow-sm">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-secondary text-muted-foreground">
+                          <FileText className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{selectedFile.name}</p>
+                          <p className="text-xs text-muted-foreground">File selected and ready to upload</p>
+                        </div>
+                        <button
+                          type="button"
+                          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                          onClick={() => {
+                            setSelectedFile(null);
+                            if (fileInputRef.current) fileInputRef.current.value = "";
+                          }}
+                          aria-label="Remove selected file"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-lg bg-background/70 px-3 py-2 text-xs text-muted-foreground">
+                        No file selected yet.
+                      </div>
+                    )}
+
+                    <Input
+                      ref={fileInputRef}
+                      id="file"
+                      type="file"
+                      accept=".txt,.md,.pdf,.doc,.docx"
+                      className="hidden"
+                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                      required
+                    />
+                  </div>
                 </div>
                 <div className="flex gap-3 pt-2">
                   <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>

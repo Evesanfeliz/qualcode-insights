@@ -1,7 +1,7 @@
 
 -- Canvas nodes table
 CREATE TABLE public.canvas_nodes (
-  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
   node_type TEXT NOT NULL,
   label TEXT NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE public.canvas_nodes (
 
 -- Canvas edges table
 CREATE TABLE public.canvas_edges (
-  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
   source_node_id UUID REFERENCES public.canvas_nodes(id) ON DELETE CASCADE NOT NULL,
   target_node_id UUID REFERENCES public.canvas_nodes(id) ON DELETE CASCADE NOT NULL,

@@ -8,7 +8,7 @@ ALTER TABLE public.codes ADD COLUMN IF NOT EXISTS created_by UUID;
 
 -- Create memos table
 CREATE TABLE public.memos (
-  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
   author_id UUID NOT NULL,
   title TEXT NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE public.memos (
 
 -- Create memo_replies table
 CREATE TABLE public.memo_replies (
-  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   memo_id UUID REFERENCES public.memos(id) ON DELETE CASCADE NOT NULL,
   author_id UUID NOT NULL,
   author_type TEXT DEFAULT 'researcher',
@@ -33,7 +33,7 @@ CREATE TABLE public.memo_replies (
 
 -- Create activity_log table
 CREATE TABLE public.activity_log (
-  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
   user_id UUID NOT NULL,
   action_type TEXT NOT NULL,

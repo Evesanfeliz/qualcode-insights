@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchProjects, type Project } from "@/lib/supabase-helpers";
+import { deleteProject, fetchProjects, type Project } from "@/lib/supabase-helpers";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Plus, LogOut, ChevronRight, FolderOpen } from "lucide-react";
+import { Plus, LogOut, ChevronRight, FolderOpen, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useOnboarding } from "@/hooks/useOnboarding";
@@ -25,6 +34,8 @@ const approachLabels: Record<string, string> = {
 const Dashboard = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(null);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { progress, loading: onboardingLoading } = useOnboarding();
@@ -81,9 +92,47 @@ const Dashboard = () => {
     navigate("/auth");
   };
 
+  const handleDeleteProject = async () => {
+    if (!projectToDelete) return;
+
+    try {
+      setDeletingProjectId(projectToDelete.id);
+      await deleteProject(projectToDelete.id);
+      setProjects((current) => current.filter((project) => project.id !== projectToDelete.id));
+      toast.success("Project deleted");
+      setProjectToDelete(null);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete project");
+    } finally {
+      setDeletingProjectId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <AppTour autoStart={shouldTour && !progress?.tour_completed} projectId={projects[0]?.id} />
+      <AlertDialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {projectToDelete
+                ? `This will permanently delete "${projectToDelete.title}" and its related research data.`
+                : "This will permanently delete this project and its related research data."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingProjectId}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteProject}
+              disabled={!!deletingProjectId}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingProjectId ? "Deleting..." : "Delete Project"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="mx-auto flex max-w-[960px] items-center justify-between px-8 py-5">
@@ -136,39 +185,53 @@ const Dashboard = () => {
             {projects.map((project) => {
               const status = statusConfig[project.status] || statusConfig.setup;
               return (
-                <button
+                <div
                   key={project.id}
                   className="group flex w-full items-center gap-5 rounded-lg border border-border bg-card px-6 py-4 text-left transition-colors hover:border-primary/30 hover:bg-secondary/50"
-                  onClick={() => navigate(`/project/${project.id}/transcripts`)}
                 >
-                  {/* Status dot */}
-                  <div className={`h-2 w-2 rounded-full shrink-0 ${status.dot}`} />
+                  <button
+                    className="flex min-w-0 flex-1 items-center gap-5 text-left"
+                    onClick={() => navigate(`/project/${project.id}/transcripts`)}
+                  >
+                    <div className={`h-2 w-2 rounded-full shrink-0 ${status.dot}`} />
 
-                  {/* Title + approach */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-heading text-lg text-foreground leading-snug truncate">
-                      {project.title}
-                    </h3>
-                    <div className="flex items-center gap-3 mt-1">
-                      {project.approach && (
-                        <span className="text-xs text-muted-foreground font-body">
-                          {approachLabels[project.approach] || project.approach}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-heading text-lg text-foreground leading-snug truncate">
+                        {project.title}
+                      </h3>
+                      <div className="flex items-center gap-3 mt-1">
+                        {project.approach && (
+                          <span className="text-xs text-muted-foreground font-body">
+                            {approachLabels[project.approach] || project.approach}
+                          </span>
+                        )}
+                        <span className="text-xs text-muted-foreground/50">·</span>
+                        <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
+                          {status.label}
                         </span>
-                      )}
-                      <span className="text-xs text-muted-foreground/50">·</span>
-                      <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-wider">
-                        {status.label}
-                      </span>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Date */}
-                  <span className="text-xs text-muted-foreground font-body tabular-nums shrink-0">
-                    {format(new Date(project.created_at), "MMM d, yyyy")}
-                  </span>
+                    <span className="text-xs text-muted-foreground font-body tabular-nums shrink-0">
+                      {format(new Date(project.created_at), "MMM d, yyyy")}
+                    </span>
 
-                  <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
-                </button>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
+                  </button>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setProjectToDelete(project);
+                    }}
+                    aria-label={`Delete ${project.title}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               );
             })}
           </div>

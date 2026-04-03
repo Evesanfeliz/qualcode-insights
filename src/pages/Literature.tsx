@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { extractTextFromDocument } from "@/lib/document-text";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { LiteratureBridgeTab } from "@/components/LiteratureBridgeTab";
 import { Button } from "@/components/ui/button";
@@ -94,7 +95,9 @@ const Literature = () => {
       let pdfText = "";
       let fileUrl = "";
       if (selectedFile) {
-        pdfText = await selectedFile.text();
+        const { text, warning } = await extractTextFromDocument(selectedFile);
+        pdfText = text;
+        if (warning) toast.warning(warning);
         const filePath = `${projectId}/lit-${crypto.randomUUID()}-${selectedFile.name}`;
         const { error: uploadErr } = await supabase.storage.from("transcripts").upload(filePath, selectedFile);
         if (uploadErr) throw uploadErr;

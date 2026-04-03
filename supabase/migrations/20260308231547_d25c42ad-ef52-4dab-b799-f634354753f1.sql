@@ -1,6 +1,6 @@
 
 CREATE TABLE public.onboarding_progress (
-  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL UNIQUE,
   welcome_completed BOOLEAN DEFAULT false,
   practice_completed BOOLEAN DEFAULT false,

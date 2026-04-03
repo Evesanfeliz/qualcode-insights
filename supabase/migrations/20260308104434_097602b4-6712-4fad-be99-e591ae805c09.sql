@@ -1,7 +1,7 @@
 
 -- Create transcripts table
 CREATE TABLE public.transcripts (
-  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
   participant_pseudonym TEXT NOT NULL,
   file_url TEXT,
@@ -65,7 +65,7 @@ USING (
 
 -- Create codes table
 CREATE TABLE public.codes (
-  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
   label TEXT NOT NULL,
   color TEXT DEFAULT '#0A7C6E',
@@ -119,7 +119,7 @@ USING (
 
 -- Create code_applications table
 CREATE TABLE public.code_applications (
-  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code_id UUID REFERENCES public.codes(id) ON DELETE CASCADE NOT NULL,
   transcript_id UUID REFERENCES public.transcripts(id) ON DELETE CASCADE NOT NULL,
   applied_by UUID NOT NULL,

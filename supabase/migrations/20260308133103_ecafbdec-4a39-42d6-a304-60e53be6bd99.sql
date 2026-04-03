@@ -1,7 +1,7 @@
 
 -- Table: disagreement_threads
 CREATE TABLE public.disagreement_threads (
-  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   code_id UUID NOT NULL REFERENCES public.codes(id) ON DELETE CASCADE,
   trigger_type TEXT NOT NULL,
@@ -51,7 +51,7 @@ CREATE POLICY "Project members can update disagreement threads"
 
 -- Table: literature_papers
 CREATE TABLE public.literature_papers (
-  id UUID PRIMARY KEY DEFAULT extensions.uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES public.projects(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   authors TEXT,

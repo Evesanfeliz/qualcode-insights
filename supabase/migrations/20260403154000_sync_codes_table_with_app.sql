@@ -1,0 +1,8 @@
+ALTER TABLE public.codes
+ADD COLUMN IF NOT EXISTS created_by UUID,
+ADD COLUMN IF NOT EXISTS definition TEXT,
+ADD COLUMN IF NOT EXISTS inclusion_criteria TEXT,
+ADD COLUMN IF NOT EXISTS exclusion_criteria TEXT,
+ADD COLUMN IF NOT EXISTS example_quote TEXT,
+ADD COLUMN IF NOT EXISTS origin TEXT DEFAULT 'researcher',
+ADD COLUMN IF NOT EXISTS theory_id UUID REFERENCES public.theories(id);

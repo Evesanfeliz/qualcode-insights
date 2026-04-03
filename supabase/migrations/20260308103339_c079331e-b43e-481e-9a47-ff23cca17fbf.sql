@@ -1,10 +1,10 @@
 
--- Enable uuid extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Enable pgcrypto extension for UUID generation
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- Create projects table
 CREATE TABLE public.projects (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users NOT NULL,
   title TEXT NOT NULL,
   research_question TEXT,
@@ -18,7 +18,7 @@ CREATE TABLE public.projects (
 
 -- Create project_members table
 CREATE TABLE public.project_members (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID REFERENCES projects(id) ON DELETE CASCADE NOT NULL,
   user_id UUID REFERENCES auth.users NOT NULL,
   role TEXT DEFAULT 'collaborator' CHECK (role IN ('owner','collaborator')),
