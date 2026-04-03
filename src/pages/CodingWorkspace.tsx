@@ -52,6 +52,22 @@ const CodingWorkspace = () => {
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [showInVivoTooltip, setShowInVivoTooltip] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  // Close popover on outside click
+  useEffect(() => {
+    if (!popoverOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setPopoverOpen(false);
+        setSelection(null);
+        setAiSuggestions([]);
+        window.getSelection()?.removeAllRanges();
+      }
+    };
+    const timer = setTimeout(() => document.addEventListener("mousedown", handleClickOutside), 100);
+    return () => { clearTimeout(timer); document.removeEventListener("mousedown", handleClickOutside); };
+  }, [popoverOpen]);
 
   const loadData = useCallback(async () => {
     if (!projectId || !transcriptId) return;
