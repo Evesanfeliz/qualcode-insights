@@ -52,6 +52,22 @@ const CodingWorkspace = () => {
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [showInVivoTooltip, setShowInVivoTooltip] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  // Close popover on outside click
+  useEffect(() => {
+    if (!popoverOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setPopoverOpen(false);
+        setSelection(null);
+        setAiSuggestions([]);
+        window.getSelection()?.removeAllRanges();
+      }
+    };
+    const timer = setTimeout(() => document.addEventListener("mousedown", handleClickOutside), 100);
+    return () => { clearTimeout(timer); document.removeEventListener("mousedown", handleClickOutside); };
+  }, [popoverOpen]);
 
   const loadData = useCallback(async () => {
     if (!projectId || !transcriptId) return;
@@ -328,8 +344,8 @@ const CodingWorkspace = () => {
 
             {/* Floating popover */}
             {popoverOpen && popoverPos && (
-              <div className="fixed z-50" style={{ left: Math.max(10, popoverPos.x - 160), top: Math.max(10, popoverPos.y - (aiSuggestions.length > 0 ? 480 : 270)) }}>
-                <div className="w-[320px] rounded-lg border border-border bg-card p-4 shadow-lg">
+              <div ref={popoverRef} className="fixed z-50" style={{ left: Math.max(10, popoverPos.x - 160), top: Math.max(10, popoverPos.y - (aiSuggestions.length > 0 ? 480 : 270)) }}>
+                <div className="w-[320px] rounded-lg border border-primary/20 bg-card p-4 shadow-lg shadow-primary/5">
                   <p className="mb-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Apply code to selection</p>
                   <div className="space-y-3">
                     <Input placeholder="New code name..." value={newCodeLabel} onChange={(e) => { setNewCodeLabel(e.target.value); if (e.target.value) setSelectedCodeId(""); }} className="h-8 text-sm" />

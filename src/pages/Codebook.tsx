@@ -14,8 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Activity, AlertTriangle, ChevronDown, ChevronRight, ShieldCheck, Palette, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Activity, AlertTriangle, ChevronDown, ChevronRight, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 
 type Theory = {
@@ -42,12 +41,6 @@ type CodeWithDetails = {
   theory_id: string | null;
 };
 
-const THEORY_COLORS = [
-  "#0E9E8A", "#4A6CF7", "#E5484D", "#F76B15", "#8B5CF6",
-  "#EC4899", "#14B8A6", "#F59E0B", "#6366F1", "#10B981",
-  "#EF4444", "#3B82F6", "#A855F7", "#F97316", "#06B6D4",
-];
-
 const ORIGIN_OPTIONS = [
   { value: "researcher", label: "Researcher" },
   { value: "in_vivo", label: "In Vivo" },
@@ -65,18 +58,19 @@ const Codebook = () => {
   const [appCounts, setAppCounts] = useState<Record<string, number>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editState, setEditState] = useState<Partial<CodeWithDetails>>({});
-  const [newCodeLabel, setNewCodeLabel] = useState("");
-  const [newCodeTheoryId, setNewCodeTheoryId] = useState("");
   const [showNewCode, setShowNewCode] = useState(false);
   const [feedOpen, setFeedOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [partnerEditing, setPartnerEditing] = useState<string | null>(null);
 
-  // Theory dialog state
-  const [theoryDialogOpen, setTheoryDialogOpen] = useState(false);
-  const [newTheoryName, setNewTheoryName] = useState("");
-  const [newTheoryDesc, setNewTheoryDesc] = useState("");
-  const [newTheoryColor, setNewTheoryColor] = useState(THEORY_COLORS[0]);
+  // New code creation state — all fields inline
+  const [newCodeLabel, setNewCodeLabel] = useState("");
+  const [newCodeTheoryId, setNewCodeTheoryId] = useState("");
+  const [newCodeOrigin, setNewCodeOrigin] = useState("researcher");
+  const [newCodeDefinition, setNewCodeDefinition] = useState("");
+  const [newCodeInclusion, setNewCodeInclusion] = useState("");
+  const [newCodeExclusion, setNewCodeExclusion] = useState("");
+  const [newCodeExample, setNewCodeExample] = useState("");
 
   const loadCodes = useCallback(async () => {
     if (!projectId) return;
@@ -154,6 +148,17 @@ const Codebook = () => {
     loadCodes();
   };
 
+  const resetNewCodeForm = () => {
+    setNewCodeLabel("");
+    setNewCodeTheoryId("");
+    setNewCodeOrigin("researcher");
+    setNewCodeDefinition("");
+    setNewCodeInclusion("");
+    setNewCodeExclusion("");
+    setNewCodeExample("");
+    setShowNewCode(false);
+  };
+
   const createCode = async () => {
     if (!newCodeLabel.trim() || !projectId) return;
     const theory = theories.find(t => t.id === newCodeTheoryId);
@@ -163,32 +168,16 @@ const Codebook = () => {
       created_by: userId,
       theory_id: newCodeTheoryId || null,
       color: theory ? theory.color : null,
+      origin: newCodeOrigin || "researcher",
+      definition: newCodeDefinition || null,
+      inclusion_criteria: newCodeInclusion || null,
+      exclusion_criteria: newCodeExclusion || null,
+      example_quote: newCodeExample || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success("Code created");
     await logActivity(projectId, userId, "code_created", `Created code "${newCodeLabel.trim()}"`);
-    setNewCodeLabel(""); setNewCodeTheoryId(""); setShowNewCode(false); loadCodes();
-  };
-
-  const createTheory = async () => {
-    if (!newTheoryName.trim() || !projectId) return;
-    const { error } = await supabase.from("theories").insert({
-      project_id: projectId,
-      name: newTheoryName.trim(),
-      description: newTheoryDesc || null,
-      color: newTheoryColor,
-    });
-    if (error) { toast.error(error.message); return; }
-    toast.success("Theory created");
-    setNewTheoryName(""); setNewTheoryDesc(""); setNewTheoryColor(THEORY_COLORS[0]);
-    setTheoryDialogOpen(false);
-    loadCodes();
-  };
-
-  const deleteTheory = async (theoryId: string) => {
-    const { error } = await supabase.from("theories").delete().eq("id", theoryId);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Theory removed");
+    resetNewCodeForm();
     loadCodes();
   };
 
@@ -208,7 +197,7 @@ const Codebook = () => {
             </Button>
             <div>
               <h1 className="font-heading text-base text-foreground">Shared Codebook</h1>
-              <p className="text-[11px] text-muted-foreground">{codes.length} codes · {theories.length} theories</p>
+              <p className="text-[11px] text-muted-foreground">{codes.length} codes</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -229,10 +218,6 @@ const Codebook = () => {
               <TabsTrigger value="codebook" className="rounded-none border-b-2 border-transparent px-0 pb-2 pt-3 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none">
                 Codebook
               </TabsTrigger>
-              <TabsTrigger value="theories" className="rounded-none border-b-2 border-transparent px-0 pb-2 pt-3 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-                <Palette className="mr-1.5 h-3.5 w-3.5" />
-                Theories
-              </TabsTrigger>
               <TabsTrigger value="consistency" className="rounded-none border-b-2 border-transparent px-0 pb-2 pt-3 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none">
                 <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
                 Consistency
@@ -245,12 +230,30 @@ const Codebook = () => {
             <ScrollArea className="h-full">
               <div className="mx-auto max-w-[1000px] p-6">
                 {showNewCode && (
-                  <div className="mb-4 flex gap-2 rounded-lg border border-primary/30 bg-card p-4 items-end">
-                    <div className="flex-1 space-y-2">
-                      <Input placeholder="New code label…" value={newCodeLabel} onChange={(e) => setNewCodeLabel(e.target.value)} autoFocus onKeyDown={(e) => e.key === "Enter" && createCode()} />
-                      {theories.length > 0 && (
+                  <div className="mb-4 rounded-lg border border-primary/30 bg-card p-5 space-y-4">
+                    <p className="text-sm font-medium text-foreground">Create New Code</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Code Label *</label>
+                        <Input placeholder="New code label…" value={newCodeLabel} onChange={(e) => setNewCodeLabel(e.target.value)} autoFocus />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Origin</label>
+                        <Select value={newCodeOrigin} onValueChange={setNewCodeOrigin}>
+                          <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {ORIGIN_OPTIONS.map(o => (
+                              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    {theories.length > 0 && (
+                      <div>
+                        <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Theory</label>
                         <Select value={newCodeTheoryId} onValueChange={setNewCodeTheoryId}>
-                          <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Link to theory (optional)" /></SelectTrigger>
+                          <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Link to theory (optional)" /></SelectTrigger>
                           <SelectContent>
                             {theories.map(t => (
                               <SelectItem key={t.id} value={t.id}>
@@ -262,10 +265,30 @@ const Codebook = () => {
                             ))}
                           </SelectContent>
                         </Select>
-                      )}
+                      </div>
+                    )}
+                    <div>
+                      <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Definition</label>
+                      <Textarea value={newCodeDefinition} onChange={(e) => setNewCodeDefinition(e.target.value)} rows={2} className="text-sm" placeholder="What does this code mean?" />
                     </div>
-                    <Button size="sm" onClick={createCode}>Create</Button>
-                    <Button size="sm" variant="ghost" onClick={() => setShowNewCode(false)}>Cancel</Button>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Inclusion criteria</label>
+                        <Textarea value={newCodeInclusion} onChange={(e) => setNewCodeInclusion(e.target.value)} rows={2} className="text-sm" placeholder="When to apply…" />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Exclusion criteria</label>
+                        <Textarea value={newCodeExclusion} onChange={(e) => setNewCodeExclusion(e.target.value)} rows={2} className="text-sm" placeholder="When NOT to apply…" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Example quote</label>
+                      <Textarea value={newCodeExample} onChange={(e) => setNewCodeExample(e.target.value)} rows={2} className="text-sm italic" placeholder="Verbatim excerpt..." />
+                    </div>
+                    <div className="flex gap-2 justify-end pt-1">
+                      <Button size="sm" variant="ghost" onClick={resetNewCodeForm}>Cancel</Button>
+                      <Button size="sm" onClick={createCode} disabled={!newCodeLabel.trim()}>Create Code</Button>
+                    </div>
                   </div>
                 )}
                 <div className="rounded-lg border border-border overflow-hidden">
@@ -389,101 +412,6 @@ const Codebook = () => {
                     </TableBody>
                   </Table>
                 </div>
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          {/* Theories Tab */}
-          <TabsContent value="theories" className="flex-1 overflow-auto m-0">
-            <ScrollArea className="h-full">
-              <div className="mx-auto max-w-[800px] p-6">
-                <div className="mb-6 flex items-center justify-between">
-                  <div>
-                    <h2 className="font-heading text-xl text-foreground">Theories</h2>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Create theories and assign colors. Codes linked to a theory inherit its color.
-                    </p>
-                  </div>
-                  <Dialog open={theoryDialogOpen} onOpenChange={setTheoryDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm"><Plus className="mr-1.5 h-3.5 w-3.5" />New Theory</Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle className="font-heading">Create Theory</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="mb-1 block text-sm font-medium text-foreground">Name *</label>
-                          <Input value={newTheoryName} onChange={e => setNewTheoryName(e.target.value)} placeholder="e.g. Institutional Theory" />
-                        </div>
-                        <div>
-                          <label className="mb-1 block text-sm font-medium text-foreground">Description</label>
-                          <Textarea value={newTheoryDesc} onChange={e => setNewTheoryDesc(e.target.value)} rows={3} placeholder="Brief description of the theory…" />
-                        </div>
-                        <div>
-                          <label className="mb-2 block text-sm font-medium text-foreground">Color *</label>
-                          <div className="flex flex-wrap gap-2">
-                            {THEORY_COLORS.map(c => (
-                              <button
-                                key={c}
-                                onClick={() => setNewTheoryColor(c)}
-                                className={`h-8 w-8 rounded-full border-2 transition-all ${newTheoryColor === c ? "border-foreground scale-110" : "border-transparent"}`}
-                                style={{ backgroundColor: c }}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                        <div className="flex gap-2 pt-2">
-                          <Button variant="ghost" onClick={() => setTheoryDialogOpen(false)}>Cancel</Button>
-                          <Button onClick={createTheory} disabled={!newTheoryName.trim()}>Create Theory</Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-
-                {theories.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-border py-16 text-center">
-                    <Palette className="mx-auto mb-4 h-10 w-10 text-muted-foreground/30" />
-                    <p className="text-sm text-muted-foreground">No theories yet. Create your first theory to organize codes by color.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {theories.map(theory => {
-                      const linkedCodes = codes.filter(c => c.theory_id === theory.id);
-                      return (
-                        <div key={theory.id} className="rounded-lg border border-border bg-card p-5">
-                          <div className="flex items-start gap-4">
-                            <div className="h-5 w-5 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: theory.color }} />
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-heading text-base text-foreground">{theory.name}</h3>
-                              {theory.description && (
-                                <p className="text-sm text-muted-foreground mt-1">{theory.description}</p>
-                              )}
-                              <div className="flex items-center gap-3 mt-3">
-                                <span className="text-xs text-muted-foreground">{linkedCodes.length} code{linkedCodes.length !== 1 ? "s" : ""} linked</span>
-                                {linkedCodes.length > 0 && (
-                                  <div className="flex flex-wrap gap-1">
-                                    {linkedCodes.slice(0, 5).map(c => (
-                                      <Badge key={c.id} variant="secondary" className="text-[10px]">{c.label}</Badge>
-                                    ))}
-                                    {linkedCodes.length > 5 && (
-                                      <Badge variant="secondary" className="text-[10px]">+{linkedCodes.length - 5}</Badge>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-destructive" onClick={() => deleteTheory(theory.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
               </div>
             </ScrollArea>
           </TabsContent>
