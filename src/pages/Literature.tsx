@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Upload, BookOpen, FileText, Loader2, ChevronDown, ChevronRight, Sparkles, Trash2, Link2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ArrowLeft, Upload, BookOpen, FileText, Loader2, ChevronDown, ChevronRight, Sparkles, Trash2, Link2, Palette, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 type Paper = {
@@ -29,12 +30,28 @@ type Paper = {
   created_at: string;
 };
 
+type Theory = {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  color: string;
+  created_at: string;
+};
+
+const THEORY_COLORS = [
+  "#0E9E8A", "#4A6CF7", "#E5484D", "#F76B15", "#8B5CF6",
+  "#EC4899", "#14B8A6", "#F59E0B", "#6366F1", "#10B981",
+  "#EF4444", "#3B82F6", "#A855F7", "#F97316", "#06B6D4",
+];
+
 const Literature = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { userId, loading: authLoading } = useCurrentUser();
 
   const [papers, setPapers] = useState<Paper[]>([]);
+  const [theories, setTheories] = useState<Theory[]>([]);
   const [reviewText, setReviewText] = useState("");
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -48,14 +65,22 @@ const Literature = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [extractingId, setExtractingId] = useState<string | null>(null);
 
+  // Theory dialog state
+  const [theoryDialogOpen, setTheoryDialogOpen] = useState(false);
+  const [newTheoryName, setNewTheoryName] = useState("");
+  const [newTheoryDesc, setNewTheoryDesc] = useState("");
+  const [newTheoryColor, setNewTheoryColor] = useState(THEORY_COLORS[0]);
+
   const loadData = useCallback(async () => {
     if (!projectId) return;
-    const [papersRes, projectRes] = await Promise.all([
+    const [papersRes, projectRes, theoriesRes] = await Promise.all([
       supabase.from("literature_papers").select("*").eq("project_id", projectId).order("created_at", { ascending: false }),
       supabase.from("projects").select("literature_review_text").eq("id", projectId).single(),
+      supabase.from("theories").select("*").eq("project_id", projectId).order("name"),
     ]);
     if (papersRes.data) setPapers(papersRes.data as Paper[]);
     if (projectRes.data) setReviewText((projectRes.data as any).literature_review_text || "");
+    if (theoriesRes.data) setTheories(theoriesRes.data as Theory[]);
     setLoading(false);
   }, [projectId]);
 
@@ -129,6 +154,28 @@ const Literature = () => {
     toast.success("Literature review saved");
   };
 
+  const createTheory = async () => {
+    if (!newTheoryName.trim() || !projectId) return;
+    const { error } = await supabase.from("theories").insert({
+      project_id: projectId,
+      name: newTheoryName.trim(),
+      description: newTheoryDesc || null,
+      color: newTheoryColor,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Theory created");
+    setNewTheoryName(""); setNewTheoryDesc(""); setNewTheoryColor(THEORY_COLORS[0]);
+    setTheoryDialogOpen(false);
+    loadData();
+  };
+
+  const deleteTheory = async (theoryId: string) => {
+    const { error } = await supabase.from("theories").delete().eq("id", theoryId);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Theory removed");
+    loadData();
+  };
+
   if (authLoading || loading) {
     return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Loading literature…</p></div>;
   }
@@ -141,8 +188,8 @@ const Literature = () => {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
-            <h1 className="font-heading text-xl text-foreground">Literature</h1>
-            <p className="text-xs text-muted-foreground">Papers, concepts & theoretical bridges</p>
+            <h1 className="font-heading text-xl text-foreground">Literature & Theories</h1>
+            <p className="text-xs text-muted-foreground">Papers, theories, concepts & bridges</p>
           </div>
         </div>
       </header>
@@ -152,6 +199,10 @@ const Literature = () => {
           <TabsList className="bg-transparent h-auto p-0 gap-4 border-b border-border w-full justify-start rounded-none">
             <TabsTrigger value="papers" className="rounded-none border-b-2 border-transparent px-0 pb-2 pt-3 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none">
               Papers & Review
+            </TabsTrigger>
+            <TabsTrigger value="theories" className="rounded-none border-b-2 border-transparent px-0 pb-2 pt-3 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+              <Palette className="mr-1.5 h-3.5 w-3.5" />
+              Theories
             </TabsTrigger>
             <TabsTrigger value="bridge" className="rounded-none border-b-2 border-transparent px-0 pb-2 pt-3 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none">
               <Link2 className="mr-1.5 h-3.5 w-3.5" />
@@ -195,8 +246,8 @@ const Literature = () => {
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">PDF File</Label>
-                    <Input type="file" accept=".pdf,.txt" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+                    <Label className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">PDF / Document File</Label>
+                    <Input type="file" accept=".pdf,.txt,.doc,.docx" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
                   </div>
                   <div className="flex gap-2">
                     <Button type="submit" disabled={uploading}>{uploading ? "Uploading…" : "Add Paper"}</Button>
@@ -292,6 +343,81 @@ const Literature = () => {
               </div>
               <Textarea value={reviewText} onChange={(e) => setReviewText(e.target.value)} rows={16} className="min-h-[300px] text-sm leading-7" placeholder="Write or paste your literature review here…" onBlur={saveReview} />
             </section>
+          </TabsContent>
+
+          {/* Theories Tab */}
+          <TabsContent value="theories" className="mt-8">
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <h2 className="font-heading text-xl text-foreground">Theories</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Create theories and assign colors. Codes linked to a theory inherit its color.
+                </p>
+              </div>
+              <Dialog open={theoryDialogOpen} onOpenChange={setTheoryDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm"><Plus className="mr-1.5 h-3.5 w-3.5" />New Theory</Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="font-heading">Create Theory</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-foreground">Name *</label>
+                      <Input value={newTheoryName} onChange={e => setNewTheoryName(e.target.value)} placeholder="e.g. Institutional Theory" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-foreground">Description</label>
+                      <Textarea value={newTheoryDesc} onChange={e => setNewTheoryDesc(e.target.value)} rows={3} placeholder="Brief description of the theory…" />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-foreground">Color *</label>
+                      <div className="flex flex-wrap gap-2">
+                        {THEORY_COLORS.map(c => (
+                          <button
+                            key={c}
+                            onClick={() => setNewTheoryColor(c)}
+                            className={`h-8 w-8 rounded-full border-2 transition-all ${newTheoryColor === c ? "border-foreground scale-110" : "border-transparent"}`}
+                            style={{ backgroundColor: c }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <Button variant="ghost" onClick={() => setTheoryDialogOpen(false)}>Cancel</Button>
+                      <Button onClick={createTheory} disabled={!newTheoryName.trim()}>Create Theory</Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {theories.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border py-16 text-center">
+                <Palette className="mx-auto mb-4 h-10 w-10 text-muted-foreground/30" />
+                <p className="text-sm text-muted-foreground">No theories yet. Create your first theory to organize codes by color.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {theories.map(theory => (
+                  <div key={theory.id} className="rounded-lg border border-border bg-card p-5">
+                    <div className="flex items-start gap-4">
+                      <div className="h-5 w-5 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: theory.color }} />
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-heading text-base text-foreground">{theory.name}</h3>
+                        {theory.description && (
+                          <p className="text-sm text-muted-foreground mt-1">{theory.description}</p>
+                        )}
+                      </div>
+                      <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-destructive" onClick={() => deleteTheory(theory.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="bridge" className="mt-8">
