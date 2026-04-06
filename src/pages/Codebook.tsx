@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
@@ -14,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Plus, Activity, AlertTriangle, ChevronDown, ChevronRight, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Plus, Activity, AlertTriangle, ChevronDown, ChevronRight, ShieldCheck, Upload, X, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 type Theory = {
@@ -77,6 +77,20 @@ const Codebook = () => {
   const [loading, setLoading] = useState(true);
   const [partnerEditing, setPartnerEditing] = useState<string | null>(null);
   const [codeExcerpts, setCodeExcerpts] = useState<Record<string, CodeExcerpt[]>>({});
+
+  // CSV import state
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [csvPreviewRows, setCsvPreviewRows] = useState<Array<{
+    code: string;
+    theoryName: string;
+    description: string;
+    whenToCode: string;
+    example: string;
+    matchedTheoryId: string | null;
+    theoryNotFound: boolean;
+  }>>([]);
+  const [showCsvPreview, setShowCsvPreview] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
 
   // New code creation state — all fields inline
   const [newCodeLabel, setNewCodeLabel] = useState("");
@@ -210,6 +224,94 @@ const Codebook = () => {
 
   const getTheoryForCode = (code: CodeWithDetails) => theories.find(t => t.id === code.theory_id);
 
+  // ── CSV Import ──────────────────────────────────────────────────────────
+  const parseCsvLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+        else { inQuotes = !inQuotes; }
+      } else if (ch === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
+
+  const handleCsvFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) { toast.error("CSV must have a header row and at least one data row."); return; }
+
+      const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase().replace(/\s+/g, " ").trim());
+      const codeIdx = headers.findIndex(h => h === "code");
+      const theoryIdx = headers.findIndex(h => h === "theory");
+      const descIdx = headers.findIndex(h => ["description", "definition"].includes(h));
+      const whenIdx = headers.findIndex(h => h === "when to code");
+      const exampleIdx = headers.findIndex(h => h === "example");
+
+      if (codeIdx === -1) { toast.error("CSV must have a 'Code' column."); return; }
+
+      const rows = lines.slice(1).map(line => {
+        const cols = parseCsvLine(line);
+        const theoryName = theoryIdx !== -1 ? (cols[theoryIdx] ?? "") : "";
+        const matched = theoryName
+          ? theories.find(t => t.name.toLowerCase() === theoryName.toLowerCase())
+          : null;
+        return {
+          code: cols[codeIdx] ?? "",
+          theoryName,
+          description: descIdx !== -1 ? (cols[descIdx] ?? "") : "",
+          whenToCode: whenIdx !== -1 ? (cols[whenIdx] ?? "") : "",
+          example: exampleIdx !== -1 ? (cols[exampleIdx] ?? "") : "",
+          matchedTheoryId: matched ? matched.id : null,
+          theoryNotFound: !!theoryName && !matched,
+        };
+      }).filter(r => r.code.trim());
+
+      if (rows.length === 0) { toast.error("No valid rows found in CSV."); return; }
+      setCsvPreviewRows(rows);
+      setShowCsvPreview(true);
+    };
+    reader.readAsText(file);
+  };
+
+  const importCsvCodes = async () => {
+    if (!projectId || csvPreviewRows.length === 0) return;
+    setImportLoading(true);
+    const inserts = csvPreviewRows.map(row => {
+      const theory = theories.find(t => t.id === row.matchedTheoryId);
+      return {
+        project_id: projectId,
+        label: row.code.trim(),
+        created_by: userId,
+        theory_id: row.matchedTheoryId || null,
+        color: theory ? theory.color : null,
+        origin: "researcher" as const,
+        definition: row.description || null,
+        inclusion_criteria: row.whenToCode || null,
+        example_quote: row.example || null,
+      };
+    });
+    const { error } = await supabase.from("codes").insert(inserts);
+    setImportLoading(false);
+    if (error) { toast.error("Import failed: " + error.message); return; }
+    toast.success(`${inserts.length} codes imported successfully!`);
+    await logActivity(projectId, userId, "codebook_updated", `Imported ${inserts.length} codes via CSV`);
+    setShowCsvPreview(false);
+    setCsvPreviewRows([]);
+    loadCodes();
+  };
+
   const orderedCodes = useMemo(() => {
     const byParent = new Map<string | null, CodeWithDetails[]>();
     codes.forEach((code) => {
@@ -248,6 +350,16 @@ const Codebook = () => {
             <Button variant="ghost" size="sm" onClick={() => setFeedOpen(!feedOpen)}>
               <Activity className="mr-1.5 h-3.5 w-3.5" />Activity
             </Button>
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCsvFile(f); e.target.value = ""; }}
+            />
+            <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()}>
+              <Upload className="mr-1.5 h-3.5 w-3.5" />Import CSV
+            </Button>
             <Button size="sm" onClick={() => setShowNewCode(true)}>
               <Plus className="mr-1.5 h-3.5 w-3.5" />New Code
             </Button>
@@ -273,6 +385,73 @@ const Codebook = () => {
           <TabsContent value="codebook" className="flex-1 overflow-auto m-0">
             <ScrollArea className="h-full">
               <div className="mx-auto max-w-[1000px] p-6">
+
+                {/* ── CSV Import Preview ── */}
+                {showCsvPreview && (
+                  <div className="mb-6 rounded-lg border border-primary/40 bg-card overflow-hidden">
+                    <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">CSV Import Preview</p>
+                        <p className="text-[11px] text-muted-foreground">{csvPreviewRows.length} code{csvPreviewRows.length !== 1 ? "s" : ""} ready to import · Theory can be assigned after import</p>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setShowCsvPreview(false); setCsvPreviewRows([]); }}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border bg-secondary/30">
+                            <th className="px-4 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Code</th>
+                            <th className="px-4 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Theory</th>
+                            <th className="px-4 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Description</th>
+                            <th className="px-4 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">When to Code</th>
+                            <th className="px-4 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Example</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {csvPreviewRows.map((row, i) => (
+                            <tr key={i} className="border-b border-border/50 last:border-0 hover:bg-secondary/20">
+                              <td className="px-4 py-2 font-medium text-foreground">{row.code}</td>
+                              <td className="px-4 py-2">
+                                {row.theoryName ? (
+                                  <span className={`inline-flex items-center gap-1.5 text-xs ${
+                                    row.theoryNotFound ? "text-amber-500" : "text-muted-foreground"
+                                  }`}>
+                                    {row.theoryNotFound ? (
+                                      <AlertTriangle className="h-3 w-3" />
+                                    ) : (
+                                      <span className="h-2 w-2 rounded-full inline-block" style={{ backgroundColor: theories.find(t => t.id === row.matchedTheoryId)?.color }} />
+                                    )}
+                                    {row.theoryName}
+                                    {row.theoryNotFound && <span className="text-[10px]">(not found)</span>}
+                                  </span>
+                                ) : <span className="text-xs text-muted-foreground/50">—</span>}
+                              </td>
+                              <td className="px-4 py-2 text-xs text-muted-foreground max-w-[200px] truncate">{row.description || <span className="text-muted-foreground/40">—</span>}</td>
+                              <td className="px-4 py-2 text-xs text-muted-foreground max-w-[180px] truncate">{row.whenToCode || <span className="text-muted-foreground/40">—</span>}</td>
+                              <td className="px-4 py-2 text-xs text-muted-foreground max-w-[180px] truncate italic">{row.example || <span className="text-muted-foreground/40">—</span>}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {csvPreviewRows.some(r => r.theoryNotFound) && (
+                      <div className="flex items-center gap-2 border-t border-border/50 bg-amber-500/10 px-5 py-2 text-xs text-amber-600">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                        Some theory names were not matched. Those codes will be imported without a theory — you can assign one afterwards.
+                      </div>
+                    )}
+                    <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+                      <Button size="sm" variant="ghost" onClick={() => { setShowCsvPreview(false); setCsvPreviewRows([]); }}>Cancel</Button>
+                      <Button size="sm" onClick={importCsvCodes} disabled={importLoading}>
+                        <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                        {importLoading ? "Importing…" : `Import ${csvPreviewRows.length} codes`}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {showNewCode && (
                   <div className="mb-4 rounded-lg border border-primary/30 bg-card p-5 space-y-4">
                     <p className="text-sm font-medium text-foreground">Create New Code</p>
