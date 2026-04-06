@@ -37,6 +37,9 @@ type Theory = {
   name: string;
   description: string | null;
   color: string;
+  document_name: string | null;
+  document_url: string | null;
+  document_text: string | null;
   created_at: string;
 };
 
@@ -71,6 +74,7 @@ const Literature = () => {
   const [newTheoryName, setNewTheoryName] = useState("");
   const [newTheoryDesc, setNewTheoryDesc] = useState("");
   const [newTheoryColor, setNewTheoryColor] = useState(THEORY_COLORS[0]);
+  const [newTheoryFile, setNewTheoryFile] = useState<File | null>(null);
 
   const loadData = useCallback(async () => {
     if (!projectId) return;
@@ -159,15 +163,39 @@ const Literature = () => {
 
   const createTheory = async () => {
     if (!newTheoryName.trim() || !projectId) return;
+    let documentText = "";
+    let documentUrl = "";
+    let documentName = "";
+
+    if (newTheoryFile) {
+      const { text, warning } = await extractTextFromDocument(newTheoryFile);
+      documentText = text;
+      documentName = newTheoryFile.name;
+      if (warning) toast.warning(warning);
+
+      const filePath = `${projectId}/theory-${crypto.randomUUID()}-${newTheoryFile.name}`;
+      const { error: uploadErr } = await supabase.storage.from("transcripts").upload(filePath, newTheoryFile);
+      if (uploadErr) {
+        toast.error(uploadErr.message);
+        return;
+      }
+      const { data: urlData } = supabase.storage.from("transcripts").getPublicUrl(filePath);
+      documentUrl = urlData.publicUrl;
+    }
+
     const { error } = await supabase.from("theories").insert({
       project_id: projectId,
       name: newTheoryName.trim(),
       description: newTheoryDesc || null,
       color: newTheoryColor,
+      document_name: documentName || null,
+      document_url: documentUrl || null,
+      document_text: documentText || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success("Theory created");
     setNewTheoryName(""); setNewTheoryDesc(""); setNewTheoryColor(THEORY_COLORS[0]);
+    setNewTheoryFile(null);
     setTheoryDialogOpen(false);
     loadData();
   };
@@ -387,6 +415,11 @@ const Literature = () => {
                         ))}
                       </div>
                     </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-foreground">Theory document</label>
+                      <Input type="file" accept=".pdf,.txt,.md,.doc,.docx" onChange={(e) => setNewTheoryFile(e.target.files?.[0] || null)} />
+                      <p className="mt-1 text-xs text-muted-foreground">Optional. Upload a theory source document to keep it attached to this theory.</p>
+                    </div>
                     <div className="flex gap-2 pt-2">
                       <Button variant="ghost" onClick={() => setTheoryDialogOpen(false)}>Cancel</Button>
                       <Button onClick={createTheory} disabled={!newTheoryName.trim()}>Create Theory</Button>
@@ -411,6 +444,17 @@ const Literature = () => {
                         <h3 className="font-heading text-base text-foreground">{theory.name}</h3>
                         {theory.description && (
                           <p className="text-sm text-muted-foreground mt-1">{theory.description}</p>
+                        )}
+                        {theory.document_name && (
+                          <div className="mt-3 rounded-md bg-secondary/30 px-3 py-2">
+                            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Attached theory document</p>
+                            <p className="mt-1 text-sm text-foreground">{theory.document_name}</p>
+                            {theory.document_url && (
+                              <a href={theory.document_url} target="_blank" rel="noreferrer" className="mt-1 inline-flex text-xs text-primary hover:underline">
+                                Open document
+                              </a>
+                            )}
+                          </div>
                         )}
                       </div>
                       <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-destructive" onClick={() => deleteTheory(theory.id)}>

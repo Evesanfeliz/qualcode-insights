@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useProjectRealtime } from "@/hooks/useProjectRealtime";
@@ -39,6 +39,20 @@ type CodeWithDetails = {
   project_id: string;
   origin: string | null;
   theory_id: string | null;
+  parent_code_id: string | null;
+};
+
+type CodeExcerpt = {
+  id: string;
+  code_id: string;
+  transcript_id: string;
+  segment_text: string;
+  start_index: number;
+  end_index: number;
+  transcript?: {
+    id: string;
+    participant_pseudonym: string;
+  } | null;
 };
 
 const ORIGIN_OPTIONS = [
@@ -62,6 +76,7 @@ const Codebook = () => {
   const [feedOpen, setFeedOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [partnerEditing, setPartnerEditing] = useState<string | null>(null);
+  const [codeExcerpts, setCodeExcerpts] = useState<Record<string, CodeExcerpt[]>>({});
 
   // New code creation state — all fields inline
   const [newCodeLabel, setNewCodeLabel] = useState("");
@@ -69,23 +84,35 @@ const Codebook = () => {
   const [newCodeOrigin, setNewCodeOrigin] = useState("researcher");
   const [newCodeDefinition, setNewCodeDefinition] = useState("");
   const [newCodeInclusion, setNewCodeInclusion] = useState("");
-  const [newCodeExclusion, setNewCodeExclusion] = useState("");
   const [newCodeExample, setNewCodeExample] = useState("");
 
   const loadCodes = useCallback(async () => {
     if (!projectId) return;
-    const [codesRes, appsRes, theoriesRes] = await Promise.all([
-      supabase.from("codes").select("id, label, color, cycle, definition, inclusion_criteria, exclusion_criteria, example_quote, created_by, project_id, origin, theory_id").eq("project_id", projectId).order("label"),
-      supabase.from("code_applications").select("code_id").then(({ data }) => {
-        const counts: Record<string, number> = {};
-        (data ?? []).forEach((a: any) => { counts[a.code_id] = (counts[a.code_id] || 0) + 1; });
-        return counts;
-      }),
+    const [codesRes, appsRes, theoriesRes, excerptsRes] = await Promise.all([
+      supabase.from("codes").select("id, label, color, cycle, definition, inclusion_criteria, exclusion_criteria, example_quote, created_by, project_id, origin, theory_id, parent_code_id").eq("project_id", projectId).order("label"),
+      supabase.from("code_applications")
+        .select("code_id, transcript:transcripts!inner(project_id)")
+        .eq("transcript.project_id", projectId)
+        .then(({ data }) => {
+          const counts: Record<string, number> = {};
+          (data ?? []).forEach((a: any) => { counts[a.code_id] = (counts[a.code_id] || 0) + 1; });
+          return counts;
+        }),
       supabase.from("theories").select("*").eq("project_id", projectId).order("name"),
+      supabase
+        .from("code_applications")
+        .select("id, code_id, transcript_id, segment_text, start_index, end_index, transcript:transcripts!inner(id, participant_pseudonym, project_id)")
+        .eq("transcript.project_id", projectId),
     ]);
     if (codesRes.data) setCodes(codesRes.data as CodeWithDetails[]);
     setAppCounts(appsRes);
     if (theoriesRes.data) setTheories(theoriesRes.data as Theory[]);
+    const groupedExcerpts: Record<string, CodeExcerpt[]> = {};
+    ((excerptsRes?.data as any[]) ?? []).forEach((item) => {
+      if (!groupedExcerpts[item.code_id]) groupedExcerpts[item.code_id] = [];
+      groupedExcerpts[item.code_id].push(item as CodeExcerpt);
+    });
+    setCodeExcerpts(groupedExcerpts);
     setLoading(false);
   }, [projectId]);
 
@@ -128,6 +155,7 @@ const Codebook = () => {
       example_quote: code.example_quote ?? "",
       origin: code.origin ?? "researcher",
       theory_id: code.theory_id ?? "",
+      parent_code_id: code.parent_code_id ?? "none",
     });
   };
 
@@ -140,6 +168,7 @@ const Codebook = () => {
       example_quote: editState.example_quote,
       origin: editState.origin || "researcher",
       theory_id: editState.theory_id || null,
+      parent_code_id: editState.parent_code_id && editState.parent_code_id !== "none" ? editState.parent_code_id : null,
       color: theory ? theory.color : null,
     }).eq("id", codeId);
     if (error) { toast.error("Failed to save"); return; }
@@ -154,7 +183,6 @@ const Codebook = () => {
     setNewCodeOrigin("researcher");
     setNewCodeDefinition("");
     setNewCodeInclusion("");
-    setNewCodeExclusion("");
     setNewCodeExample("");
     setShowNewCode(false);
   };
@@ -171,7 +199,6 @@ const Codebook = () => {
       origin: newCodeOrigin || "researcher",
       definition: newCodeDefinition || null,
       inclusion_criteria: newCodeInclusion || null,
-      exclusion_criteria: newCodeExclusion || null,
       example_quote: newCodeExample || null,
     });
     if (error) { toast.error(error.message); return; }
@@ -182,6 +209,23 @@ const Codebook = () => {
   };
 
   const getTheoryForCode = (code: CodeWithDetails) => theories.find(t => t.id === code.theory_id);
+
+  const orderedCodes = useMemo(() => {
+    const byParent = new Map<string | null, CodeWithDetails[]>();
+    codes.forEach((code) => {
+      const parentId = code.parent_code_id || null;
+      if (!byParent.has(parentId)) byParent.set(parentId, []);
+      byParent.get(parentId)!.push(code);
+    });
+    byParent.forEach((items) => items.sort((a, b) => a.label.localeCompare(b.label)));
+
+    const visit = (parentId: string | null, depth: number): Array<CodeWithDetails & { depth: number }> => {
+      const items = byParent.get(parentId) || [];
+      return items.flatMap((item) => [{ ...item, depth }, ...visit(item.id, depth + 1)]);
+    };
+
+    return visit(null, 0);
+  }, [codes]);
 
   if (authLoading || loading) {
     return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Loading codebook…</p></div>;
@@ -271,15 +315,9 @@ const Codebook = () => {
                       <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Definition</label>
                       <Textarea value={newCodeDefinition} onChange={(e) => setNewCodeDefinition(e.target.value)} rows={2} className="text-sm" placeholder="What does this code mean?" />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Inclusion criteria</label>
-                        <Textarea value={newCodeInclusion} onChange={(e) => setNewCodeInclusion(e.target.value)} rows={2} className="text-sm" placeholder="When to apply…" />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Exclusion criteria</label>
-                        <Textarea value={newCodeExclusion} onChange={(e) => setNewCodeExclusion(e.target.value)} rows={2} className="text-sm" placeholder="When NOT to apply…" />
-                      </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">When to Code</label>
+                      <Textarea value={newCodeInclusion} onChange={(e) => setNewCodeInclusion(e.target.value)} rows={2} className="text-sm" placeholder="Describe when this code should be applied…" />
                     </div>
                     <div>
                       <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Example quote</label>
@@ -311,20 +349,41 @@ const Codebook = () => {
                             No codes yet. Create your first code to start building the codebook.
                           </TableCell>
                         </TableRow>
-                      ) : codes.map((code) => {
+                      ) : orderedCodes.map((code) => {
                         const isExpanded = expandedId === code.id;
                         const partnerIsHere = partnerEditing === code.id;
                         const theory = getTheoryForCode(code);
+                        const excerpts = codeExcerpts[code.id] || [];
+                        const transcriptGroups = excerpts.reduce<Record<string, { transcriptLabel: string; excerpts: CodeExcerpt[] }>>((acc, excerpt) => {
+                          const transcriptId = excerpt.transcript_id;
+                          if (!acc[transcriptId]) {
+                            acc[transcriptId] = {
+                              transcriptLabel: excerpt.transcript?.participant_pseudonym || "Unknown transcript",
+                              excerpts: [],
+                            };
+                          }
+                          acc[transcriptId].excerpts.push(excerpt);
+                          return acc;
+                        }, {});
                         return (
                           <>
-                            <TableRow key={code.id} className="cursor-pointer" onClick={() => expandCode(code)}>
+                            <TableRow
+                              key={code.id}
+                              className="cursor-pointer"
+                              onClick={() => expandCode(code)}
+                            >
                               <TableCell className="px-2">
                                 {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                               </TableCell>
                               <TableCell className="px-2">
                                 <div className="h-3 w-3 rounded-full" style={{ backgroundColor: code.color || "hsl(var(--primary))" }} />
                               </TableCell>
-                              <TableCell className="font-medium text-foreground">{code.label}</TableCell>
+                              <TableCell className="font-medium text-foreground">
+                                <div className="flex items-center gap-2" style={{ paddingLeft: `${code.depth * 18}px` }}>
+                                  {code.depth > 0 && <span className="text-xs text-muted-foreground">└</span>}
+                                  <span>{code.label}</span>
+                                </div>
+                              </TableCell>
                               <TableCell>
                                 {theory && (
                                   <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -344,7 +403,7 @@ const Codebook = () => {
                               </TableCell>
                             </TableRow>
                             {isExpanded && (
-                              <TableRow key={`${code.id}-expanded`} className="hover:bg-transparent">
+                            <TableRow key={`${code.id}-expanded`} className="hover:bg-transparent">
                                 <TableCell colSpan={7} className="bg-secondary/30 px-8 py-4">
                                   {partnerIsHere && (
                                     <div className="mb-3 flex items-center gap-2 rounded-sm border border-destructive/30 px-3 py-2 text-xs text-destructive">
@@ -380,6 +439,18 @@ const Codebook = () => {
                                           </SelectContent>
                                         </Select>
                                       </div>
+                                      <div>
+                                        <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Parent code</label>
+                                        <Select value={(editState.parent_code_id as string) || "none"} onValueChange={(v) => setEditState(s => ({ ...s, parent_code_id: v }))}>
+                                          <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="none">Top-level code</SelectItem>
+                                            {codes.filter((candidate) => candidate.id !== code.id).map((candidate) => (
+                                              <SelectItem key={candidate.id} value={candidate.id}>{candidate.label}</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
                                     </div>
                                     <div>
                                       <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Definition</label>
@@ -398,6 +469,32 @@ const Codebook = () => {
                                     <div>
                                       <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Example quote</label>
                                       <Textarea value={editState.example_quote ?? ""} onChange={(e) => setEditState((s) => ({ ...s, example_quote: e.target.value }))} rows={2} className="text-sm italic" placeholder="Verbatim excerpt..." />
+                                    </div>
+                                    <div className="rounded-md border border-border bg-background/60 p-4">
+                                      <div className="mb-3 flex items-center justify-between">
+                                        <div>
+                                          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Code summary</p>
+                                          <p className="text-sm text-foreground">{Object.keys(transcriptGroups).length} transcript{Object.keys(transcriptGroups).length === 1 ? "" : "s"} · {excerpts.length} excerpt{excerpts.length === 1 ? "" : "s"}</p>
+                                        </div>
+                                      </div>
+                                      {excerpts.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground">This code has not been applied to any transcript segments yet.</p>
+                                      ) : (
+                                        <div className="space-y-3">
+                                          {Object.entries(transcriptGroups).map(([transcriptId, group]) => (
+                                            <div key={transcriptId} className="rounded-md border border-border bg-card p-3">
+                                              <p className="mb-2 text-sm font-medium text-foreground">{group.transcriptLabel}</p>
+                                              <div className="space-y-2">
+                                                {group.excerpts.map((excerpt) => (
+                                                  <div key={excerpt.id} className="rounded-sm bg-secondary/40 px-3 py-2 text-sm text-foreground">
+                                                    {excerpt.segment_text}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
                                     <div className="flex justify-end">
                                       <Button size="sm" onClick={() => saveCodeDetails(code.id)}>Save</Button>
