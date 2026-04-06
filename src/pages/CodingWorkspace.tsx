@@ -9,15 +9,35 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Sparkles, Loader2, Quote, FolderTree, Layers3, StickyNote, Highlighter, ChevronRight, ChevronDown } from "lucide-react";
+import { ArrowLeft, Sparkles, Loader2, Quote, FolderTree, Layers3, StickyNote, Highlighter, ChevronRight, ChevronDown, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 type Transcript = { id: string; project_id: string; participant_pseudonym: string; content: string };
-type Code = { id: string; project_id: string; label: string; color: string | null; origin: string | null };
+type Code = {
+  id: string;
+  project_id: string;
+  label: string;
+  color: string | null;
+  origin: string | null;
+  theory_id?: string | null;
+  definition?: string | null;
+  inclusion_criteria?: string | null;
+  exclusion_criteria?: string | null;
+  example_quote?: string | null;
+  parent_code_id?: string | null;
+};
 type CodeApplication = { id: string; code_id: string; transcript_id: string; applied_by: string; segment_text: string; start_index: number; end_index: number; note: string | null };
 type ProjectMember = { user_id: string; role: string | null; color_theme: string | null };
 type Project = { id: string; research_question: string | null; domain_framework: string | null; approach: string | null };
-type Theory = { id: string; project_id: string; name: string; color: string; description: string | null };
+type Theory = { id: string; project_id: string; name: string; color: string; description: string | null; documents?: { name: string; url: string; text: string }[] | null };
 type AISuggestion = { label: string; justification: string; domain_connection: string; confidence: "high" | "medium" | "low" };
 type HighlightGroup = { key: string; start: number; end: number; text: string; codes: Code[] };
 type ProjectCodeApplication = CodeApplication & { transcript?: { id: string; participant_pseudonym: string } | null };
@@ -96,6 +116,9 @@ const CodingWorkspace = () => {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newThemeName, setNewThemeName] = useState("");
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>([]);
+  const [codeToEdit, setCodeToEdit] = useState<Code | null>(null);
+  const [editState, setEditState] = useState<Partial<Code>>({});
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
 
   // Close popover on outside click
@@ -149,12 +172,12 @@ const CodingWorkspace = () => {
       setApplications((aRes.data ?? []) as CodeApplication[]);
       setMembers((mRes.data ?? []) as ProjectMember[]);
       setProjectApplications((projectAppsRes.data ?? []) as ProjectCodeApplication[]);
-      setAnnotations((annotationRes.data ?? []) as TranscriptAnnotation[]);
-      setTheories((theoryRes.data ?? []) as Theory[]);
-      setCategories((catRes.data ?? []) as Category[]);
-      setThemes((themeRes.data ?? []) as Theme[]);
-      setCodeCategories((codeCatRes.data ?? []) as CodeCategory[]);
-      setCategoryThemes((categoryThemeRes.data ?? []) as CategoryTheme[]);
+      setAnnotations((annotationRes.data as any[] ?? []) as TranscriptAnnotation[]);
+      setTheories((theoryRes.data as any[] ?? []) as Theory[]);
+      setCategories((catRes.data as any[] ?? []) as Category[]);
+      setThemes((themeRes.data as any[] ?? []) as Theme[]);
+      setCodeCategories((codeCatRes.data as any[] ?? []) as CodeCategory[]);
+      setCategoryThemes((categoryThemeRes.data as any[] ?? []) as CategoryTheme[]);
     } catch (err: any) {
       toast.error("Failed to load workspace");
     } finally {
@@ -384,6 +407,49 @@ const CodingWorkspace = () => {
     } catch (err: any) {
       toast.error(err.message || "Failed to save note");
     }
+  };
+
+  const handleEditCode = (code: Code) => {
+    setCodeToEdit(code);
+    setEditState({
+      label: code.label,
+      definition: code.definition ?? "",
+      inclusion_criteria: code.inclusion_criteria ?? "",
+      exclusion_criteria: code.exclusion_criteria ?? "",
+      example_quote: code.example_quote ?? "",
+      origin: code.origin ?? "researcher",
+      theory_id: code.theory_id ?? "",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const saveCodeDetails = async () => {
+    if (!codeToEdit || !editState.label?.trim()) return;
+    
+    const theory = theories.find(t => t.id === editState.theory_id);
+    
+    const { error } = await supabase
+      .from("codes")
+      .update({
+        label: editState.label.trim(),
+        definition: editState.definition,
+        inclusion_criteria: editState.inclusion_criteria,
+        exclusion_criteria: editState.exclusion_criteria,
+        example_quote: editState.example_quote,
+        origin: editState.origin || "researcher",
+        theory_id: editState.theory_id && editState.theory_id !== "none" ? editState.theory_id : null,
+        color: theory ? theory.color : null,
+      })
+      .eq("id", codeToEdit.id);
+
+    if (error) {
+      toast.error("Failed to save code: " + error.message);
+      return;
+    }
+
+    toast.success("Code updated");
+    setIsEditDialogOpen(false);
+    loadData();
   };
 
   const codeFrequency = useMemo(() => {
@@ -695,12 +761,12 @@ const CodingWorkspace = () => {
         .select()
         .single();
 
-      if (error) {
-        toast.error(error.message || "Failed to create category from code");
+      if (error || !data) {
+        toast.error(error?.message || "Failed to create category from code");
         return;
       }
 
-      categoryId = data.id;
+      categoryId = (data as any).id;
     }
 
     await assignCodeToCategory(draggedCodeId, categoryId, { silent: true, skipReload: true });
@@ -1125,35 +1191,50 @@ const CodingWorkspace = () => {
                           const interviewCount = stats?.interviews.size || 0;
                           const useCount = stats?.uses || 0;
                           return (
-                            <button
+                            <div
                               key={code.id}
-                              onClick={() => {
-                                if (selectedCodeFocusId === code.id) {
-                                  setSelectedCodeFocusId(null);
-                                  return;
-                                }
-                                setSelectedCodeFocusId(code.id);
-                                scrollToCode(code.id);
-                              }}
-                              className={`grid w-full grid-cols-[minmax(0,1fr)_88px_88px_96px] items-center border-b border-border px-3 py-2 text-left text-sm transition-colors last:border-b-0 hover:bg-secondary/30 ${selectedCodeFocusId === code.id ? "bg-secondary/40" : ""}`}
+                              className={`grid w-full grid-cols-[minmax(0,1fr)_88px_60px_60px_40px] items-center border-b border-border px-3 py-2 text-left text-sm transition-colors last:border-b-0 hover:bg-secondary/30 ${selectedCodeFocusId === code.id ? "bg-secondary/40" : ""}`}
                               style={{ borderLeft: `4px solid ${getCodeAccent(code.color)}` }}
                             >
-                              <span className="flex min-w-0 items-center gap-2">
+                              <button
+                                className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                                onClick={() => {
+                                  if (selectedCodeFocusId === code.id) {
+                                    setSelectedCodeFocusId(null);
+                                    return;
+                                  }
+                                  setSelectedCodeFocusId(code.id);
+                                  scrollToCode(code.id);
+                                }}
+                              >
                                 <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: getCodeAccent(code.color) }} />
                                 <span className="truncate text-foreground font-body">{code.label}</span>
-                              </span>
+                              </button>
                               <span className="flex justify-end">
                                 {badge ? (
                                   <span className={`shrink-0 rounded-sm border px-1.5 py-0.5 font-mono text-[10px] uppercase leading-none ${badge.className}`}>
                                     {badge.label}
                                   </span>
                                 ) : (
-                                  <span className="font-mono text-xs text-muted-foreground">RESEARCHER</span>
+                                  <span className="font-mono text-xs text-muted-foreground">RES</span>
                                 )}
                               </span>
                               <span className="text-right font-mono text-xs text-muted-foreground">{interviewCount}</span>
                               <span className="text-right font-mono text-xs text-muted-foreground">{useCount}</span>
-                            </button>
+                              <div className="flex justify-end">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditCode(code);
+                                  }}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
                           );
                         })}
                       </div>
@@ -1383,6 +1464,66 @@ const CodingWorkspace = () => {
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
+
+      {/* Edit Code Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Code</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Label</label>
+              <Input
+                value={editState.label || ""}
+                onChange={(e) => setEditState(s => ({ ...s, label: e.target.value }))}
+                placeholder="Code label"
+              />
+            </div>
+            {theories.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Theory Link</label>
+                <Select value={editState.theory_id || "none"} onValueChange={(v) => setEditState(s => ({ ...s, theory_id: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select theory" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No theory</SelectItem>
+                    {theories.map(t => (
+                      <SelectItem key={t.id} value={t.id}>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: t.color }} />
+                          {t.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-2">
+              <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Definition</label>
+              <Textarea
+                value={editState.definition || ""}
+                onChange={(e) => setEditState(s => ({ ...s, definition: e.target.value }))}
+                placeholder="What does this code mean?"
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Inclusion Criteria</label>
+              <Textarea
+                value={editState.inclusion_criteria || ""}
+                onChange={(e) => setEditState(s => ({ ...s, inclusion_criteria: e.target.value }))}
+                placeholder="When should this code be applied?"
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={saveCodeDetails}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* In Vivo educational tooltip */}
       {showInVivoTooltip && (

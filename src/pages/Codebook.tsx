@@ -5,6 +5,16 @@ import { useProjectRealtime } from "@/hooks/useProjectRealtime";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { logActivity } from "@/lib/activity";
 import { ActivityFeed } from "@/components/ActivityFeed";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ConsistencyTab } from "@/components/ConsistencyTab";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +24,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Plus, Activity, AlertTriangle, ChevronDown, ChevronRight, ShieldCheck, Upload, X, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Plus, Activity, AlertTriangle, ChevronDown, ChevronRight, ShieldCheck, Upload, X, CheckCircle2, Trash2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 type Theory = {
@@ -92,6 +102,10 @@ const Codebook = () => {
   const [showCsvPreview, setShowCsvPreview] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
 
+  // Delete code state
+  const [codeToDelete, setCodeToDelete] = useState<CodeWithDetails | null>(null);
+  const [deletingCodeId, setDeletingCodeId] = useState<string | null>(null);
+
   // New code creation state — all fields inline
   const [newCodeLabel, setNewCodeLabel] = useState("");
   const [newCodeTheoryId, setNewCodeTheoryId] = useState("");
@@ -159,23 +173,11 @@ const Codebook = () => {
     channel.track({ editing: expandedId });
   }, [expandedId, projectId, userId]);
 
-  const expandCode = (code: CodeWithDetails) => {
-    if (expandedId === code.id) { setExpandedId(null); return; }
-    setExpandedId(code.id);
-    setEditState({
-      definition: code.definition ?? "",
-      inclusion_criteria: code.inclusion_criteria ?? "",
-      exclusion_criteria: code.exclusion_criteria ?? "",
-      example_quote: code.example_quote ?? "",
-      origin: code.origin ?? "researcher",
-      theory_id: code.theory_id ?? "",
-      parent_code_id: code.parent_code_id ?? "none",
-    });
-  };
-
   const saveCodeDetails = async (codeId: string) => {
+    if (!editState.label?.trim()) { toast.error("Code label cannot be empty"); return; }
     const theory = theories.find(t => t.id === editState.theory_id);
     const { error } = await supabase.from("codes").update({
+      label: editState.label.trim(),
       definition: editState.definition,
       inclusion_criteria: editState.inclusion_criteria,
       exclusion_criteria: editState.exclusion_criteria,
@@ -223,6 +225,19 @@ const Codebook = () => {
   };
 
   const getTheoryForCode = (code: CodeWithDetails) => theories.find(t => t.id === code.theory_id);
+
+  const deleteCode = async () => {
+    if (!codeToDelete || !projectId) return;
+    setDeletingCodeId(codeToDelete.id);
+    const { error } = await supabase.from("codes").delete().eq("id", codeToDelete.id);
+    setDeletingCodeId(null);
+    setCodeToDelete(null);
+    if (error) { toast.error("Failed to delete code: " + error.message); return; }
+    toast.success(`Code "${codeToDelete.label}" deleted`);
+    await logActivity(projectId, userId, "codebook_updated", `Deleted code "${codeToDelete.label}"`);
+    if (expandedId === codeToDelete.id) setExpandedId(null);
+    loadCodes();
+  };
 
   // ── CSV Import ──────────────────────────────────────────────────────────
   const parseCsvLine = (line: string): string[] => {
@@ -310,6 +325,22 @@ const Codebook = () => {
     setShowCsvPreview(false);
     setCsvPreviewRows([]);
     loadCodes();
+  };
+
+  // Keep label edit in sync with editState
+  const expandCode = (code: CodeWithDetails) => {
+    if (expandedId === code.id) { setExpandedId(null); return; }
+    setExpandedId(code.id);
+    setEditState({
+      label: code.label,
+      definition: code.definition ?? "",
+      inclusion_criteria: code.inclusion_criteria ?? "",
+      exclusion_criteria: code.exclusion_criteria ?? "",
+      example_quote: code.example_quote ?? "",
+      origin: code.origin ?? "researcher",
+      theory_id: code.theory_id ?? "",
+      parent_code_id: code.parent_code_id ?? "none",
+    });
   };
 
   const orderedCodes = useMemo(() => {
@@ -552,7 +583,10 @@ const Codebook = () => {
                               onClick={() => expandCode(code)}
                             >
                               <TableCell className="px-2">
-                                {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                                <div className="flex items-center gap-1">
+                                  {isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+                                  {!isExpanded && <Pencil className="h-3 w-3 text-muted-foreground/40" />}
+                                </div>
                               </TableCell>
                               <TableCell className="px-2">
                                 <div className="h-3 w-3 rounded-full" style={{ backgroundColor: code.color || "hsl(var(--primary))" }} />
@@ -579,6 +613,19 @@ const Codebook = () => {
                               <TableCell className="text-right text-xs text-muted-foreground tabular-nums">{appCounts[code.id] || 0}</TableCell>
                               <TableCell className="text-center">
                                 {code.created_by && <span className="text-[10px] text-primary">{code.created_by === userId ? "A" : "B"}</span>}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCodeToDelete(code);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               </TableCell>
                             </TableRow>
                             {isExpanded && (
@@ -701,6 +748,27 @@ const Codebook = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <AlertDialog open={!!codeToDelete} onOpenChange={(open) => !open && setCodeToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Code?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the code "{codeToDelete?.label}"? This action cannot be undone and will remove all applications of this code.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteCode}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!!deletingCodeId}
+            >
+              {deletingCodeId ? "Deleting..." : "Delete Code"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <ActivityFeed projectId={projectId!} open={feedOpen} onClose={() => setFeedOpen(false)} />
     </div>

@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Upload, BookOpen, FileText, Loader2, ChevronDown, ChevronRight, Sparkles, Trash2, Link2, Palette, Plus } from "lucide-react";
+import { ArrowLeft, Upload, BookOpen, FileText, Loader2, ChevronDown, ChevronRight, Sparkles, Trash2, Link2, Palette, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
 type Paper = {
@@ -37,9 +37,7 @@ type Theory = {
   name: string;
   description: string | null;
   color: string;
-  document_name: string | null;
-  document_url: string | null;
-  document_text: string | null;
+  documents?: { name: string; url: string; text: string }[] | null;
   created_at: string;
 };
 
@@ -75,6 +73,7 @@ const Literature = () => {
   const [newTheoryDesc, setNewTheoryDesc] = useState("");
   const [newTheoryColor, setNewTheoryColor] = useState(THEORY_COLORS[0]);
   const [newTheoryFile, setNewTheoryFile] = useState<File | null>(null);
+  const [newTheoryFiles, setNewTheoryFiles] = useState<File[]>([]);
 
   const loadData = useCallback(async () => {
     if (!projectId) return;
@@ -163,24 +162,27 @@ const Literature = () => {
 
   const createTheory = async () => {
     if (!newTheoryName.trim() || !projectId) return;
-    let documentText = "";
-    let documentUrl = "";
-    let documentName = "";
+    const theoryDocuments = [];
+    
+    if (newTheoryFiles.length > 0) {
+      for (const file of newTheoryFiles) {
+        const { text, warning } = await extractTextFromDocument(file);
+        if (warning) toast.warning(warning);
 
-    if (newTheoryFile) {
-      const { text, warning } = await extractTextFromDocument(newTheoryFile);
-      documentText = text;
-      documentName = newTheoryFile.name;
-      if (warning) toast.warning(warning);
-
-      const filePath = `${projectId}/theory-${crypto.randomUUID()}-${newTheoryFile.name}`;
-      const { error: uploadErr } = await supabase.storage.from("transcripts").upload(filePath, newTheoryFile);
-      if (uploadErr) {
-        toast.error(uploadErr.message);
-        return;
+        const filePath = `${projectId}/theory-${crypto.randomUUID()}-${file.name}`;
+        const { error: uploadErr } = await supabase.storage.from("transcripts").upload(filePath, file);
+        if (uploadErr) {
+          toast.error(`Failed to upload ${file.name}: ${uploadErr.message}`);
+          continue;
+        }
+        const { data: urlData } = supabase.storage.from("transcripts").getPublicUrl(filePath);
+        
+        theoryDocuments.push({
+          name: file.name,
+          url: urlData.publicUrl,
+          text: text
+        });
       }
-      const { data: urlData } = supabase.storage.from("transcripts").getPublicUrl(filePath);
-      documentUrl = urlData.publicUrl;
     }
 
     const { error } = await supabase.from("theories").insert({
@@ -188,14 +190,12 @@ const Literature = () => {
       name: newTheoryName.trim(),
       description: newTheoryDesc || null,
       color: newTheoryColor,
-      document_name: documentName || null,
-      document_url: documentUrl || null,
-      document_text: documentText || null,
+      documents: theoryDocuments,
     });
     if (error) { toast.error(error.message); return; }
     toast.success("Theory created");
     setNewTheoryName(""); setNewTheoryDesc(""); setNewTheoryColor(THEORY_COLORS[0]);
-    setNewTheoryFile(null);
+    setNewTheoryFiles([]);
     setTheoryDialogOpen(false);
     loadData();
   };
@@ -416,9 +416,34 @@ const Literature = () => {
                       </div>
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-foreground">Theory document</label>
-                      <Input type="file" accept=".pdf,.txt,.md,.doc,.docx" onChange={(e) => setNewTheoryFile(e.target.files?.[0] || null)} />
-                      <p className="mt-1 text-xs text-muted-foreground">Optional. Upload a theory source document to keep it attached to this theory.</p>
+                      <label className="mb-1 block text-sm font-medium text-foreground">Theory documents</label>
+                      <Input 
+                        type="file" 
+                        accept=".pdf,.txt,.md,.doc,.docx" 
+                        multiple 
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          setNewTheoryFiles(prev => [...prev, ...files]);
+                        }} 
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">Upload theory source documents to keep them attached.</p>
+                      
+                      {newTheoryFiles.length > 0 && (
+                        <div className="mt-2 space-y-2">
+                          {newTheoryFiles.map((file, idx) => (
+                            <div key={idx} className="flex items-center justify-between rounded-md bg-secondary/50 px-2 py-1 text-xs">
+                              <span className="truncate flex-1 pr-2">{file.name}</span>
+                              <button 
+                                type="button" 
+                                onClick={() => setNewTheoryFiles(prev => prev.filter((_, i) => i !== idx))}
+                                className="text-muted-foreground hover:text-destructive"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2 pt-2">
                       <Button variant="ghost" onClick={() => setTheoryDialogOpen(false)}>Cancel</Button>
@@ -445,15 +470,19 @@ const Literature = () => {
                         {theory.description && (
                           <p className="text-sm text-muted-foreground mt-1">{theory.description}</p>
                         )}
-                        {theory.document_name && (
-                          <div className="mt-3 rounded-md bg-secondary/30 px-3 py-2">
-                            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Attached theory document</p>
-                            <p className="mt-1 text-sm text-foreground">{theory.document_name}</p>
-                            {theory.document_url && (
-                              <a href={theory.document_url} target="_blank" rel="noreferrer" className="mt-1 inline-flex text-xs text-primary hover:underline">
-                                Open document
-                              </a>
-                            )}
+                        {theory.documents && theory.documents.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Attached theory documents</p>
+                            {theory.documents.map((doc, idx) => (
+                              <div key={idx} className="rounded-md bg-secondary/30 px-3 py-2 flex items-center justify-between">
+                                <span className="text-sm text-foreground truncate flex-1 pr-4">{doc.name}</span>
+                                {doc.url && (
+                                  <a href={doc.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline shrink-0">
+                                    Open
+                                  </a>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>

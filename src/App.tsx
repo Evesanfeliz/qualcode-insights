@@ -15,6 +15,7 @@ import Theory from "./pages/Theory";
 import Canvas from "./pages/Canvas";
 import OnboardingWelcome from "./pages/OnboardingWelcome";
 import OnboardingPractice from "./pages/OnboardingPractice";
+import AcceptInvite from "./pages/AcceptInvite";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
           <Route path="/onboarding/welcome" element={<OnboardingWelcome />} />
           <Route path="/onboarding/practice" element={<OnboardingPractice />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/invite/:token" element={<AcceptInvite />} />
           <Route path="/project/new" element={<NewProject />} />
           <Route path="/project/:projectId/transcripts" element={<TranscriptManager />} />
           <Route path="/project/:projectId/code/:transcriptId" element={<CodingWorkspace />} />
