@@ -389,11 +389,11 @@ const Literature = () => {
                 <DialogTrigger asChild>
                   <Button size="sm"><Plus className="mr-1.5 h-3.5 w-3.5" />New Theory</Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
                     <DialogTitle className="font-heading">Create Theory</DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4">
+                  <div className="space-y-6 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-foreground">Name *</label>
                       <Input value={newTheoryName} onChange={e => setNewTheoryName(e.target.value)} placeholder="e.g. Institutional Theory" />
@@ -404,41 +404,52 @@ const Literature = () => {
                     </div>
                     <div>
                       <label className="mb-2 block text-sm font-medium text-foreground">Color *</label>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid grid-cols-8 gap-2">
                         {THEORY_COLORS.map(c => (
                           <button
                             key={c}
                             onClick={() => setNewTheoryColor(c)}
-                            className={`h-8 w-8 rounded-full border-2 transition-all ${newTheoryColor === c ? "border-foreground scale-110" : "border-transparent"}`}
+                            className={`h-8 w-8 rounded-full border-2 transition-all hover:scale-110 ${newTheoryColor === c ? "border-foreground ring-2 ring-foreground/20" : "border-transparent"}`}
                             style={{ backgroundColor: c }}
+                            title={c}
                           />
                         ))}
                       </div>
                     </div>
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-foreground">Theory documents</label>
-                      <Input 
-                        type="file" 
-                        accept=".pdf,.txt,.md,.doc,.docx" 
-                        multiple 
-                        onChange={(e) => {
-                          const files = Array.from(e.target.files || []);
-                          setNewTheoryFiles(prev => [...prev, ...files]);
-                        }} 
-                      />
-                      <p className="mt-1 text-xs text-muted-foreground">Upload theory source documents to keep them attached.</p>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="mb-1.5 block text-sm font-medium text-foreground">Theory documents</label>
+                        <div className="flex flex-col gap-2">
+                          <Input 
+                            type="file" 
+                            accept=".pdf,.txt,.md,.doc,.docx" 
+                            multiple 
+                            className="text-xs h-9 cursor-pointer"
+                            onChange={(e) => {
+                              const files = Array.from(e.target.files || []);
+                              setNewTheoryFiles(prev => [...prev, ...files]);
+                            }} 
+                          />
+                          <p className="text-[11px] text-muted-foreground leading-normal">
+                            Upload theory source documents to keep them attached (PDF, TXT, MD, DOC).
+                          </p>
+                        </div>
+                      </div>
                       
                       {newTheoryFiles.length > 0 && (
-                        <div className="mt-2 space-y-2">
+                        <div className="rounded-md border border-border bg-muted/30 p-2 space-y-1.5 max-h-[140px] overflow-y-auto custom-scrollbar">
                           {newTheoryFiles.map((file, idx) => (
-                            <div key={idx} className="flex items-center justify-between rounded-md bg-secondary/50 px-2 py-1 text-xs">
-                              <span className="truncate flex-1 pr-2">{file.name}</span>
+                            <div key={idx} className="flex items-center justify-between group rounded bg-background border border-border/50 px-2.5 py-1.5 text-xs transition-colors hover:bg-secondary/50">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                <span className="truncate font-medium text-foreground/80">{file.name}</span>
+                              </div>
                               <button 
                                 type="button" 
                                 onClick={() => setNewTheoryFiles(prev => prev.filter((_, i) => i !== idx))}
-                                className="text-muted-foreground hover:text-destructive"
+                                className="ml-2 rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors opacity-60 group-hover:opacity-100"
                               >
-                                <X className="h-3 w-3" />
+                                <X className="h-3.5 w-3.5" />
                               </button>
                             </div>
                           ))}
