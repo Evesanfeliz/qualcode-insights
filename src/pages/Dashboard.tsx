@@ -39,6 +39,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { progress, loading: onboardingLoading } = useOnboarding();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const shouldTour = searchParams.get("tour") === "true";
 
   useEffect(() => {
@@ -48,6 +49,7 @@ const Dashboard = () => {
         navigate("/auth");
         return;
       }
+      setCurrentUserId(session.user.id);
 
       // Check onboarding
       const { data } = await supabase
@@ -219,18 +221,20 @@ const Dashboard = () => {
                     <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
                   </button>
 
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setProjectToDelete(project);
-                    }}
-                    aria-label={`Delete ${project.title}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {project.user_id === currentUserId && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setProjectToDelete(project);
+                      }}
+                      aria-label={`Delete ${project.title}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               );
             })}

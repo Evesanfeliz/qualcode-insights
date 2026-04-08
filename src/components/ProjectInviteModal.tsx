@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Copy, Link, Shield, Users, Clock, Check, X } from "lucide-react";
+import { Copy, Link, Shield, Users, Clock, Check, X, Mail, Search } from "lucide-react";
 import { format } from "date-fns";
 
 interface ProjectInviteModalProps {
@@ -25,6 +25,8 @@ export const ProjectInviteModal = ({ projectId, isOpen, onOpenChange }: ProjectI
   const [creating, setCreating] = useState(false);
   const [invite, setInvite] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [email, setEmail] = useState("");
+  const [invitingByEmail, setInvitingByEmail] = useState(false);
 
   const fetchInvite = async () => {
     setLoading(true);
@@ -83,6 +85,61 @@ export const ProjectInviteModal = ({ projectId, isOpen, onOpenChange }: ProjectI
     toast.success("Invite link copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
   };
+  
+  const handleInviteByEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+
+    setInvitingByEmail(true);
+    try {
+      // 1. Find user by email in profiles
+      const { data: profile, error: profileError } = await (supabase
+        .from("profiles" as any) as any)
+        .select("id")
+        .eq("email", email.toLowerCase().trim())
+        .maybeSingle();
+
+      if (profileError) throw profileError;
+      
+      if (!profile) {
+        toast.error(`No user found with email ${email}. Ask them to sign up first!`);
+        return;
+      }
+
+      // 2. Check if already a member
+      const { data: existingMember } = await supabase
+        .from("project_members")
+        .select("*")
+        .eq("project_id", projectId)
+        .eq("user_id", profile.id)
+        .maybeSingle();
+
+      if (existingMember) {
+        toast.info("This user is already a member of the project.");
+        return;
+      }
+
+      // 3. Add to project_members
+      const { error: memberError } = await supabase
+        .from("project_members")
+        .insert({
+          project_id: projectId,
+          user_id: profile.id,
+          role: "collaborator",
+        });
+
+      if (memberError) throw memberError;
+
+      toast.success(`Succesfully added ${email} to the project!`);
+      setEmail("");
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error("Invite error:", error);
+      toast.error(error.message || "Failed to invite user");
+    } finally {
+      setInvitingByEmail(false);
+    }
+  };
 
   const inviteLink = invite ? `${window.location.origin}/#/invite/${invite.token}` : "";
 
@@ -99,9 +156,41 @@ export const ProjectInviteModal = ({ projectId, isOpen, onOpenChange }: ProjectI
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-6">
+        <div className="py-2 space-y-6">
+          <div className="space-y-3">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+              <Mail className="h-3 w-3" />
+              Invite by Email
+            </h4>
+            <form onSubmit={handleInviteByEmail} className="flex gap-2">
+              <Input
+                placeholder="collaborator@example.com"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-9 text-sm"
+                required
+              />
+              <Button type="submit" size="sm" disabled={invitingByEmail}>
+                {invitingByEmail ? "Adding..." : "Add"}
+              </Button>
+            </form>
+            <p className="text-[10px] text-muted-foreground">
+              User must already have an account to be added directly.
+            </p>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-[10px] uppercase">
+              <span className="bg-card px-2 text-muted-foreground">Or share link</span>
+            </div>
+          </div>
+
           {loading ? (
-            <div className="flex justify-center py-8">
+            <div className="flex justify-center py-4">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           ) : invite ? (
@@ -129,9 +218,8 @@ export const ProjectInviteModal = ({ projectId, isOpen, onOpenChange }: ProjectI
               </div>
             </div>
           ) : (
-            <div className="text-center py-4">
-              <p className="text-sm text-muted-foreground mb-4">No active invite links found.</p>
-              <Button onClick={createInvite} disabled={creating} className="w-full">
+            <div className="text-center py-2">
+              <Button onClick={createInvite} disabled={creating} variant="outline" size="sm" className="w-full text-xs h-8">
                 {creating ? "Generating..." : "Generate Invite Link"}
               </Button>
             </div>
