@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -7,6 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+interface ProjectInvite {
+  id: string;
+  project_id: string;
+  token: string;
+  used_at: string | null;
+  expires_at: string;
+  project?: {
+    title: string;
+  };
+}
+
 const AcceptInvite = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
@@ -14,20 +25,22 @@ const AcceptInvite = () => {
   const [errorMsg, setErrorMsg] = useState("");
   const [projectTitle, setProjectTitle] = useState("");
   const [projectId, setProjectId] = useState("");
-  const [userId, setUserId] = useState<string | null>(null);
   
   // Signup/Signin form state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
 
-  const fetchInviteData = async () => {
+  const fetchInviteData = useCallback(async () => {
     try {
-      const { data: invite, error: inviteError } = await (supabase
-        .from("project_invites" as any) as any)
+      // Use ts-ignore because project_invites is not in the generated types yet
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error: inviteError } = await (supabase.from("project_invites" as any) as any)
         .select("*, project:projects(title)")
         .eq("token", token)
         .single();
+      
+      const invite = data as unknown as ProjectInvite;
 
       if (inviteError || !invite) {
         setStatus("error");
@@ -50,14 +63,15 @@ const AcceptInvite = () => {
       setProjectTitle(invite.project?.title || "Project");
       setProjectId(invite.project_id);
       return invite;
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as Error;
       setStatus("error");
-      setErrorMsg(err.message || "An unexpected error occurred.");
+      setErrorMsg(error.message || "An unexpected error occurred.");
       return null;
     }
-  };
+  }, [token]);
 
-  const joinProject = async (uid: string, pid: string, inviteId: string, title: string) => {
+  const joinProject = useCallback(async (uid: string, pid: string, inviteId: string, title: string) => {
     try {
       // 1. Check if already a member
       const { data: existingMember } = await supabase
@@ -87,8 +101,8 @@ const AcceptInvite = () => {
       }
 
       // 3. Mark invite as used
-      await (supabase
-        .from("project_invites" as any) as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("project_invites" as any) as any)
         .update({
           used_at: new Date().toISOString(),
           used_by: uid,
@@ -101,11 +115,12 @@ const AcceptInvite = () => {
       setTimeout(() => {
         navigate(`/project/${pid}/transcripts`);
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as Error;
       setStatus("error");
-      setErrorMsg(err.message || "Failed to join project.");
+      setErrorMsg(error.message || "Failed to join project.");
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
     const checkSessionAndProcess = async () => {
@@ -118,12 +133,11 @@ const AcceptInvite = () => {
         return;
       }
 
-      setUserId(session.user.id);
       await joinProject(session.user.id, invite.project_id, invite.id, invite.project?.title || "Project");
     };
 
     checkSessionAndProcess();
-  }, [token, navigate]);
+  }, [fetchInviteData, joinProject]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -161,8 +175,9 @@ const AcceptInvite = () => {
           await joinProject(currentUserId, projectId, invite.id, projectTitle);
         }
       }
-    } catch (err: any) {
-      toast.error(err.message || "Authentication failed");
+    } catch (err: unknown) {
+      const error = err as Error;
+      toast.error(error.message || "Authentication failed");
     } finally {
       setAuthLoading(false);
     }
@@ -267,4 +282,5 @@ const AcceptInvite = () => {
 };
 
 export default AcceptInvite;
+
 

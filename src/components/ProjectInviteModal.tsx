@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -20,18 +20,26 @@ interface ProjectInviteModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface ProjectInvite {
+  id: string;
+  project_id: string;
+  token: string;
+  expires_at: string;
+  used_at: string | null;
+}
+
 export const ProjectInviteModal = ({ projectId, isOpen, onOpenChange }: ProjectInviteModalProps) => {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [invite, setInvite] = useState<any>(null);
+  const [invite, setInvite] = useState<ProjectInvite | null>(null);
   const [copied, setCopied] = useState(false);
   const [email, setEmail] = useState("");
   const [invitingByEmail, setInvitingByEmail] = useState(false);
 
-  const fetchInvite = async () => {
+  const fetchInvite = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await (supabase
-      .from("project_invites" as any) as any)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from("project_invites" as any) as any)
       .select("*")
       .eq("project_id", projectId)
       .filter("expires_at", "gt", new Date().toISOString())
@@ -43,24 +51,24 @@ export const ProjectInviteModal = ({ projectId, isOpen, onOpenChange }: ProjectI
     if (error) {
       console.error("Error fetching invite:", error);
     } else {
-      setInvite(data);
+      setInvite(data as ProjectInvite);
     }
     setLoading(false);
-  };
+  }, [projectId]);
 
   useEffect(() => {
     if (isOpen) {
       fetchInvite();
     }
-  }, [isOpen, projectId]);
+  }, [isOpen, fetchInvite]);
 
   const createInvite = async () => {
     setCreating(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from("project_invites" as any)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from("project_invites" as any) as any)
       .insert({
         project_id: projectId,
         created_by: user.id,
@@ -71,7 +79,7 @@ export const ProjectInviteModal = ({ projectId, isOpen, onOpenChange }: ProjectI
     if (error) {
       toast.error("Failed to generate invite: " + error.message);
     } else {
-      setInvite(data);
+      setInvite(data as ProjectInvite);
       toast.success("Invite link generated");
     }
     setCreating(false);
@@ -93,8 +101,8 @@ export const ProjectInviteModal = ({ projectId, isOpen, onOpenChange }: ProjectI
     setInvitingByEmail(true);
     try {
       // 1. Find user by email in profiles
-      const { data: profile, error: profileError } = await (supabase
-        .from("profiles" as any) as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: profile, error: profileError } = await (supabase.from("profiles" as any) as any)
         .select("id")
         .eq("email", email.toLowerCase().trim())
         .maybeSingle();
@@ -111,7 +119,7 @@ export const ProjectInviteModal = ({ projectId, isOpen, onOpenChange }: ProjectI
         .from("project_members")
         .select("*")
         .eq("project_id", projectId)
-        .eq("user_id", profile.id)
+        .eq("user_id", profile.id as string)
         .maybeSingle();
 
       if (existingMember) {
@@ -124,7 +132,7 @@ export const ProjectInviteModal = ({ projectId, isOpen, onOpenChange }: ProjectI
         .from("project_members")
         .insert({
           project_id: projectId,
-          user_id: profile.id,
+          user_id: profile.id as string,
           role: "collaborator",
         });
 
@@ -133,9 +141,10 @@ export const ProjectInviteModal = ({ projectId, isOpen, onOpenChange }: ProjectI
       toast.success(`Succesfully added ${email} to the project!`);
       setEmail("");
       onOpenChange(false);
-    } catch (error: any) {
-      console.error("Invite error:", error);
-      toast.error(error.message || "Failed to invite user");
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Invite error:", err);
+      toast.error(err.message || "Failed to invite user");
     } finally {
       setInvitingByEmail(false);
     }
