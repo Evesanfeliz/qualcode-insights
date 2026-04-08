@@ -176,7 +176,7 @@ export const ProjectInviteModal = ({ projectId, isOpen, onOpenChange }: ProjectI
               </Button>
             </form>
             <p className="text-[10px] text-muted-foreground">
-              User must already have an account to be added directly.
+              New users can join immediately via the link below.
             </p>
           </div>
 
