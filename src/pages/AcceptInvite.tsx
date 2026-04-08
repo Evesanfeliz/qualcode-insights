@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, CheckCircle2, XCircle, Users } from "lucide-react";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 const AcceptInvite = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [projectTitle, setProjectTitle] = useState("");
@@ -18,7 +19,7 @@ const AcceptInvite = () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
           // If not logged in, redirect to auth but keep the invite path in session storage
-          sessionStorage.setItem("returnTo", window.location.pathname);
+          sessionStorage.setItem("returnTo", location.pathname + location.search);
           navigate("/auth");
           return;
         }

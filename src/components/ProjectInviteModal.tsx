@@ -77,14 +77,14 @@ export const ProjectInviteModal = ({ projectId, isOpen, onOpenChange }: ProjectI
 
   const copyLink = () => {
     if (!invite) return;
-    const link = `${window.location.origin}/invite/${invite.token}`;
+    const link = `${window.location.origin}/#/invite/${invite.token}`;
     navigator.clipboard.writeText(link);
     setCopied(true);
     toast.success("Invite link copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const inviteLink = invite ? `${window.location.origin}/invite/${invite.token}` : "";
+  const inviteLink = invite ? `${window.location.origin}/#/invite/${invite.token}` : "";
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
