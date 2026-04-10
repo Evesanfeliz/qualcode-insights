@@ -598,6 +598,7 @@ export type Database = {
       project_members: {
         Row: {
           color_theme: string | null
+          display_name: string | null
           id: string
           joined_at: string | null
           project_id: string
@@ -606,6 +607,7 @@ export type Database = {
         }
         Insert: {
           color_theme?: string | null
+          display_name?: string | null
           id?: string
           joined_at?: string | null
           project_id: string
@@ -614,6 +616,7 @@ export type Database = {
         }
         Update: {
           color_theme?: string | null
+          display_name?: string | null
           id?: string
           joined_at?: string | null
           project_id?: string

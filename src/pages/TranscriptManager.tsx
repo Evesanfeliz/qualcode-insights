@@ -8,7 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Upload, FileText, Calendar, User, BookOpen, StickyNote, BookMarked, Lightbulb, Network, ChevronRight, HelpCircle, X, Users } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ArrowLeft, Upload, FileText, Calendar, User, BookOpen, StickyNote, BookMarked, Lightbulb, Network, ChevronRight, HelpCircle, X, Users, Pencil, Trash2 } from "lucide-react";
 import { HelpModal } from "@/components/HelpModal";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -31,6 +41,7 @@ type ProjectMember = {
   user_id: string;
   role: string | null;
   color_theme: string | null;
+  display_name: string | null;
 };
 
 const statusLabel: Record<string, string> = {
@@ -57,6 +68,7 @@ const TranscriptManager = () => {
   const [helpOpen, setHelpOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
 
+  // Upload state
   const [newTranscript, setNewTranscript] = useState({
     pseudonym: "",
     interviewDate: "",
@@ -65,12 +77,27 @@ const TranscriptManager = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Edit transcript state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingTranscript, setEditingTranscript] = useState<Transcript | null>(null);
+  const [editForm, setEditForm] = useState({
+    pseudonym: "",
+    interviewDate: "",
+    assignedTo: "",
+    status: "",
+  });
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Delete transcript state
+  const [transcriptToDelete, setTranscriptToDelete] = useState<Transcript | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const loadData = useCallback(async () => {
     if (!projectId) return;
     try {
       const [transcriptRes, memberRes, projectRes] = await Promise.all([
         supabase.from("transcripts").select("*").eq("project_id", projectId).order("created_at", { ascending: false }),
-        supabase.from("project_members").select("user_id, role, color_theme").eq("project_id", projectId),
+        supabase.from("project_members").select("user_id, role, color_theme, display_name").eq("project_id", projectId),
         supabase.from("projects").select("title").eq("id", projectId).single(),
       ]);
       if (transcriptRes.error) throw transcriptRes.error;
@@ -94,6 +121,13 @@ const TranscriptManager = () => {
     checkAuth();
   }, [navigate, loadData]);
 
+  const getMemberLabel = (userId: string) => {
+    const member = members.find((m) => m.user_id === userId);
+    if (member?.display_name) return member.display_name;
+    const idx = members.findIndex((m) => m.user_id === userId);
+    return idx === 0 ? "Researcher A" : idx === 1 ? "Researcher B" : "Unknown";
+  };
+
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFile || !newTranscript.pseudonym.trim() || !projectId) {
@@ -116,7 +150,6 @@ const TranscriptManager = () => {
       if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage.from("transcripts").getPublicUrl(filePath);
-
       const wordCount = content.split(/\s+/).filter(Boolean).length;
 
       const { error: insertError } = await supabase.from("transcripts").insert({
@@ -143,9 +176,63 @@ const TranscriptManager = () => {
     }
   };
 
-  const getMemberLabel = (userId: string) => {
-    const idx = members.findIndex((m) => m.user_id === userId);
-    return idx === 0 ? "Researcher A" : idx === 1 ? "Researcher B" : "Unknown";
+  const openEditDialog = (t: Transcript) => {
+    setEditingTranscript(t);
+    setEditForm({
+      pseudonym: t.participant_pseudonym,
+      interviewDate: t.interview_date ?? "",
+      assignedTo: t.assigned_to ?? "",
+      status: t.status ?? "uploaded",
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTranscript || !editForm.pseudonym.trim()) {
+      toast.error("Pseudonym is required");
+      return;
+    }
+    setEditLoading(true);
+    try {
+      const { error } = await supabase
+        .from("transcripts")
+        .update({
+          participant_pseudonym: editForm.pseudonym.trim(),
+          interview_date: editForm.interviewDate || null,
+          assigned_to: editForm.assignedTo || null,
+          status: editForm.status || "uploaded",
+        })
+        .eq("id", editingTranscript.id);
+      if (error) throw error;
+      toast.success("Transcript updated");
+      setEditDialogOpen(false);
+      setEditingTranscript(null);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update transcript");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDeleteTranscript = async () => {
+    if (!transcriptToDelete) return;
+    setDeletingId(transcriptToDelete.id);
+    try {
+      const { error } = await supabase
+        .from("transcripts")
+        .delete()
+        .eq("id", transcriptToDelete.id);
+      if (error) throw error;
+      toast.success(`Transcript "${transcriptToDelete.participant_pseudonym}" deleted`);
+      setTranscriptToDelete(null);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to delete transcript");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -251,7 +338,7 @@ const TranscriptManager = () => {
                     <SelectContent>
                       {members.map((m, i) => (
                         <SelectItem key={m.user_id} value={m.user_id}>
-                          {i === 0 ? "Researcher A" : "Researcher B"}
+                          {m.display_name || (i === 0 ? "Researcher A" : "Researcher B")}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -323,10 +410,7 @@ const TranscriptManager = () => {
                   <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button
-                    type="submit"
-                    disabled={uploading}
-                  >
+                  <Button type="submit" disabled={uploading}>
                     {uploading ? "Uploading..." : "Upload"}
                   </Button>
                 </div>
@@ -351,48 +435,177 @@ const TranscriptManager = () => {
         ) : (
           <div className="space-y-1">
             {transcripts.map((t) => (
-              <button
+              <div
                 key={t.id}
-                className="flex w-full items-center gap-4 rounded-lg border border-border bg-card px-6 py-4 text-left transition-colors hover:bg-secondary"
-                onClick={() => navigate(`/project/${projectId}/code/${t.id}`)}
+                className="group flex w-full items-center gap-4 rounded-lg border border-border bg-card px-6 py-4 transition-colors hover:bg-secondary"
               >
-                <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
-                <div className="flex-1 min-w-0">
-                  <span className="font-heading text-base text-foreground">
-                    {t.participant_pseudonym}
-                  </span>
-                  <div className="mt-1 flex items-center gap-4 text-xs text-muted-foreground">
-                    {t.interview_date && (
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {format(new Date(t.interview_date), "MMM d, yyyy")}
-                      </span>
-                    )}
-                    {t.assigned_to && (
-                      <span className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {getMemberLabel(t.assigned_to)}
-                      </span>
-                    )}
-                    {t.word_count && (
-                      <span className="font-mono text-[10px]">{t.word_count.toLocaleString()} words</span>
-                    )}
+                {/* Clickable main area */}
+                <button
+                  className="flex flex-1 min-w-0 items-center gap-4 text-left"
+                  onClick={() => navigate(`/project/${projectId}/code/${t.id}`)}
+                >
+                  <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-heading text-base text-foreground">
+                      {t.participant_pseudonym}
+                    </span>
+                    <div className="mt-1 flex items-center gap-4 text-xs text-muted-foreground">
+                      {t.interview_date && (
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {format(new Date(t.interview_date), "MMM d, yyyy")}
+                        </span>
+                      )}
+                      {t.assigned_to && (
+                        <span className="flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {getMemberLabel(t.assigned_to)}
+                        </span>
+                      )}
+                      {t.word_count && (
+                        <span className="font-mono text-[10px]">{t.word_count.toLocaleString()} words</span>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  <div className={`h-2 w-2 rounded-full ${statusDot[t.status || "uploaded"]}`} />
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                    {statusLabel[t.status || "uploaded"]}
-                  </span>
-                </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className={`h-2 w-2 rounded-full ${statusDot[t.status || "uploaded"]}`} />
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {statusLabel[t.status || "uploaded"]}
+                    </span>
+                  </div>
 
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </button>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </button>
+
+                {/* Edit & Delete actions — always visible on hover */}
+                <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    title="Edit transcript"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEditDialog(t);
+                    }}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    title="Delete transcript"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTranscriptToDelete(t);
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
             ))}
           </div>
         )}
       </main>
+
+      {/* Edit Transcript Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Edit Transcript</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSave} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-pseudonym">Participant Pseudonym *</Label>
+              <Input
+                id="edit-pseudonym"
+                placeholder="e.g. P1, Participant Alpha"
+                value={editForm.pseudonym}
+                onChange={(e) => setEditForm({ ...editForm, pseudonym: e.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-date">Interview Date</Label>
+              <Input
+                id="edit-date"
+                type="date"
+                value={editForm.interviewDate}
+                onChange={(e) => setEditForm({ ...editForm, interviewDate: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Assign to Researcher</Label>
+              <Select
+                value={editForm.assignedTo}
+                onValueChange={(v) => setEditForm({ ...editForm, assignedTo: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select researcher" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">— Unassigned —</SelectItem>
+                  {members.map((m, i) => (
+                    <SelectItem key={m.user_id} value={m.user_id}>
+                      {m.display_name || (i === 0 ? "Researcher A" : "Researcher B")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select
+                value={editForm.status}
+                onValueChange={(v) => setEditForm({ ...editForm, status: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="uploaded">Uploaded</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="coded">Coded</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button type="button" variant="ghost" onClick={() => setEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={editLoading}>
+                {editLoading ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Transcript Confirmation */}
+      <AlertDialog open={!!transcriptToDelete} onOpenChange={(open) => !open && setTranscriptToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Transcript?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{transcriptToDelete?.participant_pseudonym}"? This will permanently remove the transcript and all its code applications. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingId}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteTranscript}
+              disabled={!!deletingId}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingId ? "Deleting..." : "Delete Transcript"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
       <ProjectInviteModal projectId={projectId!} isOpen={inviteOpen} onOpenChange={setInviteOpen} />
     </div>

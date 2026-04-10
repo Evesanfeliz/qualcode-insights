@@ -15,6 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ConsistencyTab } from "@/components/ConsistencyTab";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Plus, Activity, AlertTriangle, ChevronDown, ChevronRight, ShieldCheck, Upload, X, CheckCircle2, Trash2, Pencil } from "lucide-react";
+import { ArrowLeft, Plus, Activity, AlertTriangle, ChevronDown, ChevronRight, ShieldCheck, Upload, X, CheckCircle2, Trash2, Pencil, Users } from "lucide-react";
 import { toast } from "sonner";
 
 type Theory = {
@@ -34,6 +35,12 @@ type Theory = {
   description: string | null;
   color: string;
   created_at: string;
+};
+
+type ProjectMember = {
+  user_id: string;
+  role: string | null;
+  display_name: string | null;
 };
 
 type CodeWithDetails = {
@@ -79,6 +86,7 @@ const Codebook = () => {
 
   const [codes, setCodes] = useState<CodeWithDetails[]>([]);
   const [theories, setTheories] = useState<Theory[]>([]);
+  const [members, setMembers] = useState<ProjectMember[]>([]);
   const [appCounts, setAppCounts] = useState<Record<string, number>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editState, setEditState] = useState<Partial<CodeWithDetails>>({});
@@ -87,6 +95,11 @@ const Codebook = () => {
   const [loading, setLoading] = useState(true);
   const [partnerEditing, setPartnerEditing] = useState<string | null>(null);
   const [codeExcerpts, setCodeExcerpts] = useState<Record<string, CodeExcerpt[]>>({});
+
+  // Researcher name dialog
+  const [nameDialogOpen, setNameDialogOpen] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [nameSaving, setNameSaving] = useState(false);
 
   // CSV import state
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -116,7 +129,7 @@ const Codebook = () => {
 
   const loadCodes = useCallback(async () => {
     if (!projectId) return;
-    const [codesRes, appsRes, theoriesRes, excerptsRes] = await Promise.all([
+    const [codesRes, appsRes, theoriesRes, excerptsRes, membersRes] = await Promise.all([
       supabase.from("codes").select("id, label, color, cycle, definition, inclusion_criteria, exclusion_criteria, example_quote, created_by, project_id, origin, theory_id, parent_code_id").eq("project_id", projectId).order("label"),
       supabase.from("code_applications")
         .select("code_id, transcript:transcripts!inner(project_id)")
@@ -131,10 +144,12 @@ const Codebook = () => {
         .from("code_applications")
         .select("id, code_id, transcript_id, segment_text, start_index, end_index, transcript:transcripts!inner(id, participant_pseudonym, project_id)")
         .eq("transcript.project_id", projectId),
+      supabase.from("project_members").select("user_id, role, display_name").eq("project_id", projectId),
     ]);
     if (codesRes.data) setCodes(codesRes.data as CodeWithDetails[]);
     setAppCounts(appsRes);
     if (theoriesRes.data) setTheories(theoriesRes.data as Theory[]);
+    if (membersRes.data) setMembers(membersRes.data as ProjectMember[]);
     const groupedExcerpts: Record<string, CodeExcerpt[]> = {};
     ((excerptsRes?.data as any[]) ?? []).forEach((item) => {
       if (!groupedExcerpts[item.code_id]) groupedExcerpts[item.code_id] = [];
@@ -228,14 +243,48 @@ const Codebook = () => {
 
   const deleteCode = async () => {
     if (!codeToDelete || !projectId) return;
-    setDeletingCodeId(codeToDelete.id);
-    const { error } = await supabase.from("codes").delete().eq("id", codeToDelete.id);
+    // Capture label before clearing state
+    const label = codeToDelete.label;
+    const id = codeToDelete.id;
+    setDeletingCodeId(id);
+    const { error } = await supabase.from("codes").delete().eq("id", id);
     setDeletingCodeId(null);
     setCodeToDelete(null);
     if (error) { toast.error("Failed to delete code: " + error.message); return; }
-    toast.success(`Code "${codeToDelete.label}" deleted`);
-    await logActivity(projectId, userId, "codebook_updated", `Deleted code "${codeToDelete.label}"`);
-    if (expandedId === codeToDelete.id) setExpandedId(null);
+    toast.success(`Code "${label}" deleted`);
+    await logActivity(projectId, userId, "codebook_updated", `Deleted code "${label}"`);
+    if (expandedId === id) setExpandedId(null);
+    loadCodes();
+  };
+
+  const getMemberLabel = (memberId: string) => {
+    const member = members.find((m) => m.user_id === memberId);
+    if (member?.display_name) return member.display_name;
+    const idx = members.findIndex((m) => m.user_id === memberId);
+    if (idx === 0) return "A";
+    if (idx === 1) return "B";
+    return "?";
+  };
+
+  const myMember = members.find((m) => m.user_id === userId);
+
+  const openNameDialog = () => {
+    setNameInput(myMember?.display_name ?? "");
+    setNameDialogOpen(true);
+  };
+
+  const saveDisplayName = async () => {
+    if (!projectId || !userId) return;
+    setNameSaving(true);
+    const { error } = await supabase
+      .from("project_members")
+      .update({ display_name: nameInput.trim() || null })
+      .eq("project_id", projectId)
+      .eq("user_id", userId);
+    setNameSaving(false);
+    if (error) { toast.error("Failed to save name"); return; }
+    toast.success("Researcher name updated");
+    setNameDialogOpen(false);
     loadCodes();
   };
 
@@ -378,6 +427,10 @@ const Codebook = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={openNameDialog} title={myMember?.display_name ? `Your name: ${myMember.display_name}` : "Set your researcher name"}>
+              <Users className="mr-1.5 h-3.5 w-3.5" />
+              {myMember?.display_name ?? "Set Name"}
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => setFeedOpen(!feedOpen)}>
               <Activity className="mr-1.5 h-3.5 w-3.5" />Activity
             </Button>
@@ -612,7 +665,11 @@ const Codebook = () => {
                               </TableCell>
                               <TableCell className="text-right text-xs text-muted-foreground tabular-nums">{appCounts[code.id] || 0}</TableCell>
                               <TableCell className="text-center">
-                                {code.created_by && <span className="text-[10px] text-primary">{code.created_by === userId ? "A" : "B"}</span>}
+                                {code.created_by && (
+                                  <span className="text-[10px] text-primary" title={getMemberLabel(code.created_by)}>
+                                    {getMemberLabel(code.created_by)}
+                                  </span>
+                                )}
                               </TableCell>
                               <TableCell className="text-right">
                                 <Button
@@ -771,6 +828,35 @@ const Codebook = () => {
       </AlertDialog>
 
       <ActivityFeed projectId={projectId!} open={feedOpen} onClose={() => setFeedOpen(false)} />
+
+      {/* Set Researcher Name Dialog */}
+      <Dialog open={nameDialogOpen} onOpenChange={setNameDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Your Researcher Name</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-1">
+            <p className="text-sm text-muted-foreground">
+              Set your display name for this project — e.g. <span className="italic text-foreground">Evelyn</span> or <span className="italic text-foreground">Katarina</span>. This replaces "Researcher A / B" across the platform.
+            </p>
+            <div className="space-y-2">
+              <Input
+                placeholder="Your first name or alias"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && saveDisplayName()}
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="ghost" size="sm" onClick={() => setNameDialogOpen(false)}>Cancel</Button>
+              <Button size="sm" onClick={saveDisplayName} disabled={nameSaving}>
+                {nameSaving ? "Saving…" : "Save Name"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
