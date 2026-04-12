@@ -289,34 +289,75 @@ const Codebook = () => {
   };
 
   // ── CSV Import ──────────────────────────────────────────────────────────
-  const parseCsvLine = (line: string): string[] => {
-    const result: string[] = [];
-    let current = "";
+  const parseCsvDocument = (text: string): string[][] => {
+    const rows: string[][] = [];
+    let currentRow: string[] = [];
+    let currentCell = "";
     let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-        else { inQuotes = !inQuotes; }
-      } else if (ch === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = "";
-      } else {
-        current += ch;
+
+    const pushCell = () => {
+      currentRow.push(currentCell.trim());
+      currentCell = "";
+    };
+
+    const pushRow = () => {
+      const hasContent = currentRow.some((cell) => cell.trim() !== "") || currentCell.trim() !== "";
+      pushCell();
+      if (hasContent || currentRow.some((cell) => cell !== "")) {
+        rows.push(currentRow);
       }
+      currentRow = [];
+    };
+
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      const next = text[i + 1];
+      if (ch === '"') {
+        if (inQuotes && next === '"') {
+          currentCell += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
+      }
+
+      if (ch === "," && !inQuotes) {
+        pushCell();
+        continue;
+      }
+
+      if ((ch === "\n" || ch === "\r") && !inQuotes) {
+        if (ch === "\r" && next === "\n") i++;
+        pushRow();
+        continue;
+      }
+
+      currentCell += ch;
     }
-    result.push(current.trim());
-    return result;
+
+    if (currentCell.length > 0 || currentRow.length > 0) {
+      pushRow();
+    }
+
+    return rows;
   };
+
+  const normalizeCsvHeader = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/\uFEFF/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
 
   const handleCsvFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const lines = text.split(/\r?\n/).filter(l => l.trim());
-      if (lines.length < 2) { toast.error("CSV must have a header row and at least one data row."); return; }
+      const text = ((e.target?.result as string) || "").replace(/^\uFEFF/, "");
+      const rows = parseCsvDocument(text);
+      if (rows.length < 2) { toast.error("CSV must have a header row and at least one data row."); return; }
 
-      const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase().replace(/\s+/g, " ").trim());
+      const headers = rows[0].map(normalizeCsvHeader);
       const codeIdx = headers.findIndex(h => h === "code");
       const theoryIdx = headers.findIndex(h => h === "theory");
       const descIdx = headers.findIndex(h => ["description", "definition"].includes(h));
@@ -325,11 +366,10 @@ const Codebook = () => {
 
       if (codeIdx === -1) { toast.error("CSV must have a 'Code' column."); return; }
 
-      const rows = lines.slice(1).map(line => {
-        const cols = parseCsvLine(line);
+      const parsedRows = rows.slice(1).map(cols => {
         const theoryName = theoryIdx !== -1 ? (cols[theoryIdx] ?? "") : "";
         const matched = theoryName
-          ? theories.find(t => t.name.toLowerCase() === theoryName.toLowerCase())
+          ? theories.find(t => t.name.trim().toLowerCase() === theoryName.trim().toLowerCase())
           : null;
         return {
           code: cols[codeIdx] ?? "",
@@ -342,8 +382,8 @@ const Codebook = () => {
         };
       }).filter(r => r.code.trim());
 
-      if (rows.length === 0) { toast.error("No valid rows found in CSV."); return; }
-      setCsvPreviewRows(rows);
+      if (parsedRows.length === 0) { toast.error("No valid rows found in CSV."); return; }
+      setCsvPreviewRows(parsedRows);
       setShowCsvPreview(true);
     };
     reader.readAsText(file);
