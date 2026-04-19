@@ -118,6 +118,7 @@ const Codebook = () => {
   // Delete code state
   const [codeToDelete, setCodeToDelete] = useState<CodeWithDetails | null>(null);
   const [deletingCodeId, setDeletingCodeId] = useState<string | null>(null);
+  const [draggedCodeId, setDraggedCodeId] = useState<string | null>(null);
 
   // New code creation state — all fields inline
   const [newCodeLabel, setNewCodeLabel] = useState("");
@@ -241,20 +242,105 @@ const Codebook = () => {
 
   const getTheoryForCode = (code: CodeWithDetails) => theories.find(t => t.id === code.theory_id);
 
-  const deleteCode = async () => {
+  const cleanupGeneratedCategoriesForCodes = useCallback(async (deletedCodeIds: string[]) => {
+    if (deletedCodeIds.length === 0) return;
+
+    const { data: linkedCategories, error: categoryLookupError } = await supabase
+      .from("categories" as any)
+      .select("id, parent_category_id")
+      .in("source_code_id", deletedCodeIds);
+
+    if (categoryLookupError || !linkedCategories || linkedCategories.length === 0) return;
+
+    for (const category of linkedCategories as Array<{ id: string; parent_category_id: string | null }>) {
+      const { error: promoteChildrenError } = await supabase
+        .from("categories" as any)
+        .update({ parent_category_id: category.parent_category_id })
+        .eq("parent_category_id", category.id);
+
+      if (promoteChildrenError) {
+        throw promoteChildrenError;
+      }
+    }
+
+    const categoryIds = linkedCategories.map((category) => category.id);
+    const { error: deleteCategoryError } = await supabase
+      .from("categories" as any)
+      .delete()
+      .in("id", categoryIds);
+
+    if (deleteCategoryError) {
+      throw deleteCategoryError;
+    }
+  }, []);
+
+  const getDescendantCodeIds = useCallback((rootCodeId: string) => {
+    const byParent = new Map<string, string[]>();
+    codes.forEach((code) => {
+      if (!code.parent_code_id) return;
+      if (!byParent.has(code.parent_code_id)) byParent.set(code.parent_code_id, []);
+      byParent.get(code.parent_code_id)!.push(code.id);
+    });
+
+    const stack = [...(byParent.get(rootCodeId) || [])];
+    const descendants: string[] = [];
+    while (stack.length > 0) {
+      const currentId = stack.pop()!;
+      descendants.push(currentId);
+      stack.push(...(byParent.get(currentId) || []));
+    }
+    return descendants;
+  }, [codes]);
+
+  const deleteCode = async (mode: "promote" | "cascade" = "promote") => {
     if (!codeToDelete || !projectId) return;
-    // Capture label before clearing state
     const label = codeToDelete.label;
     const id = codeToDelete.id;
+    const parentId = codeToDelete.parent_code_id;
+    const descendantIds = getDescendantCodeIds(id);
+    const affectedCodeIds = [id, ...descendantIds];
+
     setDeletingCodeId(id);
-    const { error } = await supabase.from("codes").delete().eq("id", id);
-    setDeletingCodeId(null);
-    setCodeToDelete(null);
-    if (error) { toast.error("Failed to delete code: " + error.message); return; }
-    toast.success(`Code "${label}" deleted`);
-    await logActivity(projectId, userId, "codebook_updated", `Deleted code "${label}"`);
-    if (expandedId === id) setExpandedId(null);
-    loadCodes();
+    try {
+      if (mode === "promote" && descendantIds.length > 0) {
+        const { error: promoteChildrenError } = await supabase
+          .from("codes")
+          .update({ parent_code_id: parentId })
+          .eq("parent_code_id", id);
+
+        if (promoteChildrenError) throw promoteChildrenError;
+      }
+
+      await cleanupGeneratedCategoriesForCodes(mode === "cascade" ? affectedCodeIds : [id]);
+
+      const deleteQuery = supabase.from("codes").delete();
+      const { error } = mode === "cascade"
+        ? await deleteQuery.in("id", affectedCodeIds)
+        : await deleteQuery.eq("id", id);
+
+      if (error) throw error;
+
+      setCodeToDelete(null);
+      toast.success(
+        mode === "cascade" && descendantIds.length > 0
+          ? `Deleted "${label}" and ${descendantIds.length} nested code${descendantIds.length === 1 ? "" : "s"}`
+          : `Code "${label}" deleted`,
+      );
+      await logActivity(
+        projectId,
+        userId,
+        "codebook_updated",
+        mode === "cascade" && descendantIds.length > 0
+          ? `Deleted code "${label}" with ${descendantIds.length} nested code${descendantIds.length === 1 ? "" : "s"}`
+          : `Deleted code "${label}"`,
+      );
+      if (expandedId && affectedCodeIds.includes(expandedId)) setExpandedId(null);
+      loadCodes();
+    } catch (error: any) {
+      toast.error("Failed to delete code: " + error.message);
+    } finally {
+      setDeletingCodeId(null);
+    }
   };
 
   const getMemberLabel = (memberId: string) => {
@@ -267,6 +353,16 @@ const Codebook = () => {
   };
 
   const myMember = members.find((m) => m.user_id === userId);
+  const codeChildrenByParent = useMemo(() => {
+    const mapping: Record<string, CodeWithDetails[]> = {};
+    codes.forEach((code) => {
+      const parentKey = code.parent_code_id || "root";
+      if (!mapping[parentKey]) mapping[parentKey] = [];
+      mapping[parentKey].push(code);
+    });
+    Object.values(mapping).forEach((items) => items.sort((a, b) => a.label.localeCompare(b.label)));
+    return mapping;
+  }, [codes]);
 
   const openNameDialog = () => {
     setNameInput(myMember?.display_name ?? "");
@@ -289,34 +385,76 @@ const Codebook = () => {
   };
 
   // ── CSV Import ──────────────────────────────────────────────────────────
-  const parseCsvLine = (line: string): string[] => {
-    const result: string[] = [];
-    let current = "";
+  const parseCsvDocument = (text: string): string[][] => {
+    const rows: string[][] = [];
+    let currentRow: string[] = [];
+    let currentCell = "";
     let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-        else { inQuotes = !inQuotes; }
-      } else if (ch === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = "";
-      } else {
-        current += ch;
+
+    const pushCell = () => {
+      currentRow.push(currentCell.trim());
+      currentCell = "";
+    };
+
+    const pushRow = () => {
+      const hasContent = currentRow.some((cell) => cell.trim() !== "") || currentCell.trim() !== "";
+      pushCell();
+      if (hasContent || currentRow.some((cell) => cell !== "")) {
+        rows.push(currentRow);
       }
+      currentRow = [];
+    };
+
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      const next = text[i + 1];
+
+      if (ch === '"') {
+        if (inQuotes && next === '"') {
+          currentCell += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
+      }
+
+      if (ch === "," && !inQuotes) {
+        pushCell();
+        continue;
+      }
+
+      if ((ch === "\n" || ch === "\r") && !inQuotes) {
+        if (ch === "\r" && next === "\n") i++;
+        pushRow();
+        continue;
+      }
+
+      currentCell += ch;
     }
-    result.push(current.trim());
-    return result;
+
+    if (currentCell.length > 0 || currentRow.length > 0) {
+      pushRow();
+    }
+
+    return rows;
   };
+
+  const normalizeCsvHeader = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/\uFEFF/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
 
   const handleCsvFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const lines = text.split(/\r?\n/).filter(l => l.trim());
-      if (lines.length < 2) { toast.error("CSV must have a header row and at least one data row."); return; }
+      const text = ((e.target?.result as string) || "").replace(/^\uFEFF/, "");
+      const rows = parseCsvDocument(text);
+      if (rows.length < 2) { toast.error("CSV must have a header row and at least one data row."); return; }
 
-      const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase().replace(/\s+/g, " ").trim());
+      const headers = rows[0].map(normalizeCsvHeader);
       const codeIdx = headers.findIndex(h => h === "code");
       const theoryIdx = headers.findIndex(h => h === "theory");
       const descIdx = headers.findIndex(h => ["description", "definition"].includes(h));
@@ -325,11 +463,10 @@ const Codebook = () => {
 
       if (codeIdx === -1) { toast.error("CSV must have a 'Code' column."); return; }
 
-      const rows = lines.slice(1).map(line => {
-        const cols = parseCsvLine(line);
+      const parsedRows = rows.slice(1).map(cols => {
         const theoryName = theoryIdx !== -1 ? (cols[theoryIdx] ?? "") : "";
         const matched = theoryName
-          ? theories.find(t => t.name.toLowerCase() === theoryName.toLowerCase())
+          ? theories.find(t => t.name.trim().toLowerCase() === theoryName.trim().toLowerCase())
           : null;
         return {
           code: cols[codeIdx] ?? "",
@@ -342,8 +479,8 @@ const Codebook = () => {
         };
       }).filter(r => r.code.trim());
 
-      if (rows.length === 0) { toast.error("No valid rows found in CSV."); return; }
-      setCsvPreviewRows(rows);
+      if (parsedRows.length === 0) { toast.error("No valid rows found in CSV."); return; }
+      setCsvPreviewRows(parsedRows);
       setShowCsvPreview(true);
     };
     reader.readAsText(file);
@@ -393,21 +530,47 @@ const Codebook = () => {
   };
 
   const orderedCodes = useMemo(() => {
-    const byParent = new Map<string | null, CodeWithDetails[]>();
-    codes.forEach((code) => {
-      const parentId = code.parent_code_id || null;
-      if (!byParent.has(parentId)) byParent.set(parentId, []);
-      byParent.get(parentId)!.push(code);
-    });
-    byParent.forEach((items) => items.sort((a, b) => a.label.localeCompare(b.label)));
-
     const visit = (parentId: string | null, depth: number): Array<CodeWithDetails & { depth: number }> => {
-      const items = byParent.get(parentId) || [];
+      const items = codeChildrenByParent[parentId || "root"] || [];
       return items.flatMap((item) => [{ ...item, depth }, ...visit(item.id, depth + 1)]);
     };
 
     return visit(null, 0);
-  }, [codes]);
+  }, [codeChildrenByParent]);
+
+  const canMoveCodeToParent = useCallback((codeId: string, nextParentId: string | null) => {
+    if (codeId === nextParentId) return false;
+    if (!nextParentId) return true;
+    const descendantIds = getDescendantCodeIds(codeId);
+    return !descendantIds.includes(nextParentId);
+  }, [getDescendantCodeIds]);
+
+  const moveCodeToParent = useCallback(async (codeId: string, nextParentId: string | null) => {
+    const targetCode = codes.find((code) => code.id === codeId);
+    if (!targetCode) return;
+    if (targetCode.parent_code_id === nextParentId) return;
+    if (!canMoveCodeToParent(codeId, nextParentId)) {
+      toast.error("A code cannot be moved inside itself or one of its subcodes");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("codes")
+      .update({ parent_code_id: nextParentId })
+      .eq("id", codeId);
+
+    if (error) {
+      toast.error("Failed to update code hierarchy: " + error.message);
+      return;
+    }
+
+    const parentLabel = nextParentId
+      ? codes.find((code) => code.id === nextParentId)?.label ?? "parent code"
+      : "top level";
+    toast.success(nextParentId ? `Moved "${targetCode.label}" under "${parentLabel}"` : `Moved "${targetCode.label}" to top level`);
+    await logActivity(projectId!, userId, "codebook_updated", nextParentId ? `Moved code "${targetCode.label}" under "${parentLabel}"` : `Moved code "${targetCode.label}" to top level`);
+    loadCodes();
+  }, [canMoveCodeToParent, codes, loadCodes, projectId, userId]);
 
   if (authLoading || loading) {
     return <div className="flex min-h-screen items-center justify-center bg-background"><p className="text-muted-foreground">Loading codebook…</p></div>;
@@ -592,8 +755,22 @@ const Codebook = () => {
                     </div>
                   </div>
                 )}
-                <div className="rounded-lg border border-border overflow-hidden">
-                  <Table>
+                  <div
+                    className={`mb-3 rounded-lg border border-dashed px-4 py-3 text-sm transition-colors ${draggedCodeId ? "border-primary/50 bg-primary/5 text-foreground" : "border-border bg-secondary/10 text-muted-foreground"}`}
+                    onDragOver={(e) => {
+                      if (!draggedCodeId) return;
+                      e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggedCodeId) void moveCodeToParent(draggedCodeId, null);
+                      setDraggedCodeId(null);
+                    }}
+                  >
+                    Drop a code here to move it back to the top level.
+                  </div>
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    <Table>
                     <TableHeader>
                       <TableRow className="hover:bg-transparent">
                         <TableHead className="w-8"></TableHead>
@@ -633,6 +810,25 @@ const Codebook = () => {
                             <TableRow
                               key={code.id}
                               className="cursor-pointer"
+                              draggable
+                              onDragStart={(e) => {
+                                e.stopPropagation();
+                                setDraggedCodeId(code.id);
+                                e.dataTransfer.setData("text/qualcode-code", code.id);
+                                e.dataTransfer.effectAllowed = "move";
+                              }}
+                              onDragEnd={() => setDraggedCodeId(null)}
+                              onDragOver={(e) => {
+                                if (!draggedCodeId || draggedCodeId === code.id) return;
+                                e.preventDefault();
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const droppedCodeId = e.dataTransfer.getData("text/qualcode-code") || draggedCodeId;
+                                if (droppedCodeId) void moveCodeToParent(droppedCodeId, code.id);
+                                setDraggedCodeId(null);
+                              }}
                               onClick={() => expandCode(code)}
                             >
                               <TableCell className="px-2">
@@ -724,15 +920,17 @@ const Codebook = () => {
                                       </div>
                                       <div>
                                         <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Parent code</label>
-                                        <Select value={(editState.parent_code_id as string) || "none"} onValueChange={(v) => setEditState(s => ({ ...s, parent_code_id: v }))}>
-                                          <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="none">Top-level code</SelectItem>
-                                            {codes.filter((candidate) => candidate.id !== code.id).map((candidate) => (
-                                              <SelectItem key={candidate.id} value={candidate.id}>{candidate.label}</SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
+                                            <Select value={(editState.parent_code_id as string) || "none"} onValueChange={(v) => setEditState(s => ({ ...s, parent_code_id: v }))}>
+                                              <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="none">Top-level code</SelectItem>
+                                                {orderedCodes
+                                                  .filter((candidate) => candidate.id !== code.id && canMoveCodeToParent(code.id, candidate.id))
+                                                  .map((candidate) => (
+                                                  <SelectItem key={candidate.id} value={candidate.id}>{candidate.label}</SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
                                       </div>
                                     </div>
                                     <div>
@@ -811,17 +1009,34 @@ const Codebook = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Code?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete the code "{codeToDelete?.label}"? This action cannot be undone and will remove all applications of this code.
+              {codeToDelete
+                ? (() => {
+                    const childCount = getDescendantCodeIds(codeToDelete.id).length;
+                    if (childCount === 0) {
+                      return `Are you sure you want to delete the code "${codeToDelete.label}"? This action cannot be undone and will remove all applications of this code.`;
+                    }
+                    return `"${codeToDelete.label}" has ${childCount} nested code${childCount === 1 ? "" : "s"}. You can delete only this code and promote its children, or delete the entire subtree.`;
+                  })()
+                : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
+            {codeToDelete && getDescendantCodeIds(codeToDelete.id).length > 0 && (
+              <AlertDialogAction
+                onClick={() => deleteCode("promote")}
+                className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                disabled={!!deletingCodeId}
+              >
+                {deletingCodeId ? "Deleting..." : "Delete And Promote Children"}
+              </AlertDialogAction>
+            )}
             <AlertDialogAction
-              onClick={deleteCode}
+              onClick={() => deleteCode(codeToDelete && getDescendantCodeIds(codeToDelete.id).length > 0 ? "cascade" : "promote")}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={!!deletingCodeId}
             >
-              {deletingCodeId ? "Deleting..." : "Delete Code"}
+              {deletingCodeId ? "Deleting..." : codeToDelete && getDescendantCodeIds(codeToDelete.id).length > 0 ? "Delete Entire Subtree" : "Delete Code"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

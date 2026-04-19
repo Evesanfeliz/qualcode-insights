@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Upload, FileText, Calendar, User, BookOpen, StickyNote, BookMarked, Lightbulb, Network, ChevronRight, HelpCircle, X, Users, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Upload, FileText, Calendar, User, BookOpen, StickyNote, BookMarked, Lightbulb, Network, ChevronRight, HelpCircle, X, Users, Pencil, Trash2, Sparkles } from "lucide-react";
 import { HelpModal } from "@/components/HelpModal";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -272,6 +272,10 @@ const TranscriptManager = () => {
             <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/canvas`)} data-tour="canvas-link">
               <Network className="mr-1.5 h-3.5 w-3.5" />
               Canvas
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/ai-analysis`)}>
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              AI Analysis
             </Button>
             <div className="w-px h-5 bg-border mx-1" />
             <Button variant="ghost" size="sm" onClick={() => setHelpOpen(true)} data-tour="help-link">

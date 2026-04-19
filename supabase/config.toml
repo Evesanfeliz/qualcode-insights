@@ -23,3 +23,12 @@ verify_jwt = false
 
 [functions.ai-literature-bridge]
 verify_jwt = false
+
+[functions.ai-stage1-initial-coding]
+verify_jwt = false
+
+[functions.ai-stage2-focused-grouping]
+verify_jwt = false
+
+[functions.ai-stage3-theme-development]
+verify_jwt = false

@@ -115,11 +115,12 @@ const CodingWorkspace = () => {
   const [categoryThemes, setCategoryThemes] = useState<CategoryTheme[]>([]);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newThemeName, setNewThemeName] = useState("");
-  const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>([]);
-  const [codeToEdit, setCodeToEdit] = useState<Code | null>(null);
-  const [editState, setEditState] = useState<Partial<Code>>({});
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const popoverRef = useRef<HTMLDivElement>(null);
+    const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>([]);
+    const [codeToEdit, setCodeToEdit] = useState<Code | null>(null);
+    const [editState, setEditState] = useState<Partial<Code>>({});
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [draggedCodeId, setDraggedCodeId] = useState<string | null>(null);
+    const popoverRef = useRef<HTMLDivElement>(null);
 
   // Close popover on outside click
   useEffect(() => {
@@ -411,22 +412,28 @@ const CodingWorkspace = () => {
 
   const handleEditCode = (code: Code) => {
     setCodeToEdit(code);
-    setEditState({
-      label: code.label,
-      definition: code.definition ?? "",
-      inclusion_criteria: code.inclusion_criteria ?? "",
-      exclusion_criteria: code.exclusion_criteria ?? "",
-      example_quote: code.example_quote ?? "",
-      origin: code.origin ?? "researcher",
-      theory_id: code.theory_id ?? "",
-    });
-    setIsEditDialogOpen(true);
-  };
+      setEditState({
+        label: code.label,
+        definition: code.definition ?? "",
+        inclusion_criteria: code.inclusion_criteria ?? "",
+        exclusion_criteria: code.exclusion_criteria ?? "",
+        example_quote: code.example_quote ?? "",
+        origin: code.origin ?? "researcher",
+        theory_id: code.theory_id ?? "",
+        parent_code_id: code.parent_code_id ?? "none",
+      });
+      setIsEditDialogOpen(true);
+    };
 
-  const saveCodeDetails = async () => {
-    if (!codeToEdit || !editState.label?.trim()) return;
-    
-    const theory = theories.find(t => t.id === editState.theory_id);
+    const saveCodeDetails = async () => {
+      if (!codeToEdit || !editState.label?.trim()) return;
+      const nextParentId = editState.parent_code_id && editState.parent_code_id !== "none" ? editState.parent_code_id : null;
+      if (nextParentId === codeToEdit.id || (nextParentId && getDescendantCodeIds(codeToEdit.id).includes(nextParentId))) {
+        toast.error("A code cannot be moved inside itself or one of its subcodes");
+        return;
+      }
+      
+      const theory = theories.find(t => t.id === editState.theory_id);
     
     const { error } = await supabase
       .from("codes")
@@ -434,13 +441,14 @@ const CodingWorkspace = () => {
         label: editState.label.trim(),
         definition: editState.definition,
         inclusion_criteria: editState.inclusion_criteria,
-        exclusion_criteria: editState.exclusion_criteria,
-        example_quote: editState.example_quote,
-        origin: editState.origin || "researcher",
-        theory_id: editState.theory_id && editState.theory_id !== "none" ? editState.theory_id : null,
-        color: theory ? theory.color : null,
-      })
-      .eq("id", codeToEdit.id);
+          exclusion_criteria: editState.exclusion_criteria,
+          example_quote: editState.example_quote,
+          origin: editState.origin || "researcher",
+          theory_id: editState.theory_id && editState.theory_id !== "none" ? editState.theory_id : null,
+          parent_code_id: nextParentId,
+          color: theory ? theory.color : null,
+        })
+        .eq("id", codeToEdit.id);
 
     if (error) {
       toast.error("Failed to save code: " + error.message);
@@ -633,11 +641,11 @@ const CodingWorkspace = () => {
     return parts;
   }, [transcript, highlightGroups, annotationGroups]);
 
-  const codeIdsByCategory = useMemo(() => {
-    const mapping: Record<string, string[]> = {};
-    codeCategories.forEach((item) => {
-      if (!mapping[item.category_id]) mapping[item.category_id] = [];
-      mapping[item.category_id].push(item.code_id);
+    const codeIdsByCategory = useMemo(() => {
+      const mapping: Record<string, string[]> = {};
+      codeCategories.forEach((item) => {
+        if (!mapping[item.category_id]) mapping[item.category_id] = [];
+        mapping[item.category_id].push(item.code_id);
     });
     return mapping;
   }, [codeCategories]);
@@ -651,15 +659,74 @@ const CodingWorkspace = () => {
     return mapping;
   }, [categoryThemes]);
 
-  const uncategorizedCodes = useMemo(() => {
-    const assigned = new Set(codeCategories.map((item) => item.code_id));
-    const convertedToCategories = new Set(
-      categories
-        .map((category) => category.source_code_id)
-        .filter(Boolean) as string[],
-    );
-    return codes.filter((code) => !assigned.has(code.id) && !convertedToCategories.has(code.id));
-  }, [codes, codeCategories, categories]);
+    const orderedCodes = useMemo(() => {
+      const byParent = new Map<string | null, Code[]>();
+      codes.forEach((code) => {
+        const parentKey = code.parent_code_id || null;
+        if (!byParent.has(parentKey)) byParent.set(parentKey, []);
+        byParent.get(parentKey)!.push(code);
+      });
+      byParent.forEach((items) => items.sort((a, b) => a.label.localeCompare(b.label)));
+
+      const visit = (parentId: string | null, depth: number): Array<Code & { depth: number }> => {
+        const items = byParent.get(parentId) || [];
+        return items.flatMap((item) => [{ ...item, depth }, ...visit(item.id, depth + 1)]);
+      };
+
+      return visit(null, 0);
+    }, [codes]);
+
+    const getDescendantCodeIds = useCallback((rootCodeId: string) => {
+      const byParent = new Map<string, string[]>();
+      codes.forEach((code) => {
+        if (!code.parent_code_id) return;
+        if (!byParent.has(code.parent_code_id)) byParent.set(code.parent_code_id, []);
+        byParent.get(code.parent_code_id)!.push(code.id);
+      });
+
+      const stack = [...(byParent.get(rootCodeId) || [])];
+      const descendants: string[] = [];
+      while (stack.length > 0) {
+        const currentId = stack.pop()!;
+        descendants.push(currentId);
+        stack.push(...(byParent.get(currentId) || []));
+      }
+      return descendants;
+    }, [codes]);
+
+    const canMoveCodeToParent = useCallback((codeId: string, nextParentId: string | null) => {
+      if (codeId === nextParentId) return false;
+      if (!nextParentId) return true;
+      return !getDescendantCodeIds(codeId).includes(nextParentId);
+    }, [getDescendantCodeIds]);
+
+    const moveCodeToParent = useCallback(async (codeId: string, nextParentId: string | null) => {
+      const targetCode = codes.find((code) => code.id === codeId);
+      if (!targetCode) return;
+      if (targetCode.parent_code_id === nextParentId) return;
+      if (!canMoveCodeToParent(codeId, nextParentId)) {
+        toast.error("A code cannot be moved inside itself or one of its subcodes");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("codes")
+        .update({ parent_code_id: nextParentId })
+        .eq("id", codeId);
+
+      if (error) {
+        toast.error(error.message || "Failed to update code hierarchy");
+        return;
+      }
+
+      toast.success(nextParentId ? "Code nested successfully" : "Code moved to top level");
+      loadData();
+    }, [canMoveCodeToParent, codes, loadData]);
+
+    const uncategorizedCodes = useMemo(() => {
+      const assigned = new Set(codeCategories.map((item) => item.code_id));
+      return orderedCodes.filter((code) => !assigned.has(code.id));
+    }, [orderedCodes, codeCategories]);
 
   const unthemedCategories = useMemo(() => {
     const assigned = new Set(categoryThemes.map((item) => item.category_id));
@@ -734,44 +801,6 @@ const CodingWorkspace = () => {
     }
     setNewCategoryName("");
     toast.success("Category created");
-    loadData();
-  };
-
-  const createCategoryFromCode = async (targetCodeId: string, draggedCodeId: string) => {
-    if (!projectId || targetCodeId === draggedCodeId) return;
-
-    const targetCode = codes.find((code) => code.id === targetCodeId);
-    if (!targetCode) return;
-
-    const existingCategory = categories.find((category) => category.source_code_id === targetCodeId);
-
-    let categoryId = existingCategory?.id;
-
-    if (!categoryId) {
-      const { data, error } = await supabase
-        .from("categories" as any)
-        .insert({
-          project_id: projectId,
-          name: targetCode.label,
-          color: targetCode.color,
-          created_by: currentUserId,
-          parent_category_id: null,
-          source_code_id: targetCodeId,
-        })
-        .select()
-        .single();
-
-      if (error || !data) {
-        toast.error(error?.message || "Failed to create category from code");
-        return;
-      }
-
-      categoryId = (data as any).id;
-    }
-
-    await assignCodeToCategory(draggedCodeId, categoryId, { silent: true, skipReload: true });
-    setExpandedCategoryIds((current) => current.includes(categoryId!) ? current : [...current, categoryId!]);
-    toast.success(`Converted "${targetCode.label}" into a category`);
     loadData();
   };
 
@@ -872,14 +901,81 @@ const CodingWorkspace = () => {
     loadData();
   };
 
-  const removeCodeFromCategory = async (codeId: string, categoryId: string) => {
-    const { error } = await supabase.from("code_categories" as any).delete().eq("code_id", codeId).eq("category_id", categoryId);
-    if (error) {
-      toast.error(error.message || "Failed to remove code");
-      return;
-    }
-    loadData();
-  };
+    const removeCodeFromCategory = async (codeId: string, categoryId: string) => {
+      const { error } = await supabase.from("code_categories" as any).delete().eq("code_id", codeId).eq("category_id", categoryId);
+      if (error) {
+        toast.error(error.message || "Failed to remove code");
+        return;
+      }
+      loadData();
+    };
+
+    const removeCodeFromAllCategories = async (codeId: string) => {
+      const { error } = await supabase.from("code_categories" as any).delete().eq("code_id", codeId);
+      if (error) {
+        toast.error(error.message || "Failed to move code back to uncategorized");
+        return;
+      }
+      toast.success("Code moved back to uncategorized");
+      loadData();
+    };
+
+    const revertLegacyCategoryToCodeHierarchy = async (categoryId: string) => {
+      const category = categories.find((item) => item.id === categoryId);
+      if (!category?.source_code_id) {
+        toast.error("Only legacy code-backed categories can be moved back into the code tree");
+        return;
+      }
+
+      const childCodeIds = (codeIdsByCategory[categoryId] || []).filter((codeId) => codeId !== category.source_code_id);
+
+      if (childCodeIds.length > 0) {
+        const { error: moveCodesError } = await supabase
+          .from("codes")
+          .update({ parent_code_id: category.source_code_id })
+          .in("id", childCodeIds);
+
+        if (moveCodesError) {
+          toast.error(moveCodesError.message || "Failed to restore nested codes");
+          return;
+        }
+      }
+
+      if (childCodeIds.length > 0 || (codeIdsByCategory[categoryId] || []).length > 0) {
+        const { error: clearAssignmentsError } = await supabase
+          .from("code_categories" as any)
+          .delete()
+          .eq("category_id", categoryId);
+
+        if (clearAssignmentsError) {
+          toast.error(clearAssignmentsError.message || "Failed to clear category assignments");
+          return;
+        }
+      }
+
+      const { error: promoteChildCategoriesError } = await supabase
+        .from("categories" as any)
+        .update({ parent_category_id: category.parent_category_id })
+        .eq("parent_category_id", categoryId);
+
+      if (promoteChildCategoriesError) {
+        toast.error(promoteChildCategoriesError.message || "Failed to preserve nested categories");
+        return;
+      }
+
+      const { error: deleteCategoryError } = await supabase
+        .from("categories" as any)
+        .delete()
+        .eq("id", categoryId);
+
+      if (deleteCategoryError) {
+        toast.error(deleteCategoryError.message || "Failed to remove legacy category");
+        return;
+      }
+
+      toast.success(`"${category.name}" is now back in the code hierarchy`);
+      loadData();
+    };
 
   const removeCategoryFromTheme = async (categoryId: string, themeId: string) => {
     const { error } = await supabase.from("category_themes" as any).delete().eq("category_id", categoryId).eq("theme_id", themeId);
@@ -890,20 +986,21 @@ const CodingWorkspace = () => {
     loadData();
   };
 
-  const onCodeDragStart = (e: React.DragEvent, codeId: string) => {
-    e.dataTransfer.setData("text/qualcode-code", codeId);
-    e.dataTransfer.effectAllowed = "move";
-  };
+    const onCodeDragStart = (e: React.DragEvent, codeId: string) => {
+      setDraggedCodeId(codeId);
+      e.dataTransfer.setData("text/qualcode-code", codeId);
+      e.dataTransfer.effectAllowed = "move";
+    };
 
   const onCategoryDragStart = (e: React.DragEvent, categoryId: string) => {
     e.dataTransfer.setData("text/qualcode-category", categoryId);
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const allowDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
+    const allowDrop = (e: React.DragEvent) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+    };
 
   const renderCategoryBranch = (category: Category, depth = 0): React.ReactNode => {
     const aggregate = getCategoryAggregate(category.id);
@@ -914,18 +1011,19 @@ const CodingWorkspace = () => {
 
     return (
       <div key={category.id}>
-        <div
-          className={`grid grid-cols-[minmax(0,1fr)_88px_96px] items-center border-b border-border px-3 py-2 text-sm hover:bg-secondary/20 ${depth > 0 ? "bg-secondary/10" : ""}`}
-          onDragOver={allowDrop}
-          onDrop={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const codeId = e.dataTransfer.getData("text/qualcode-code");
-            const draggedCategoryId = e.dataTransfer.getData("text/qualcode-category");
-            if (codeId) assignCodeToCategory(codeId, category.id);
-            if (draggedCategoryId) assignCategoryToParent(draggedCategoryId, category.id);
-          }}
-        >
+          <div
+            className={`grid grid-cols-[minmax(0,1fr)_88px_96px_150px] items-center border-b border-border px-3 py-2 text-sm hover:bg-secondary/20 ${depth > 0 ? "bg-secondary/10" : ""}`}
+            onDragOver={allowDrop}
+              onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const codeId = e.dataTransfer.getData("text/qualcode-code");
+              const draggedCategoryId = e.dataTransfer.getData("text/qualcode-category");
+              if (codeId) void assignCodeToCategory(codeId, category.id);
+              if (draggedCategoryId) assignCategoryToParent(draggedCategoryId, category.id);
+              setDraggedCodeId(null);
+            }}
+          >
           <div className="flex min-w-0 items-center gap-2" style={{ paddingLeft: `${depth * 18}px` }}>
             <button
               type="button"
@@ -934,46 +1032,77 @@ const CodingWorkspace = () => {
             >
               {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
             </button>
-            <div
-              draggable
-              onDragStart={(e) => onCategoryDragStart(e, category.id)}
-              className="flex min-w-0 flex-1 items-center gap-2"
-            >
-              <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: category.color || "hsl(var(--muted))" }} />
-              <span className="truncate font-medium text-foreground">{category.name}</span>
+              <div
+                draggable
+                onDragStart={(e) => onCategoryDragStart(e, category.id)}
+                className="flex min-w-0 flex-1 items-center gap-2"
+              >
+                <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: category.color || "hsl(var(--muted))" }} />
+                <span className="truncate font-medium text-foreground">{category.name}</span>
+                {category.source_code_id && (
+                  <span className="rounded-sm border border-primary/30 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-primary">
+                    code-backed
+                  </span>
+                )}
+              </div>
+              {category.source_code_id && (
+                <button
+                  type="button"
+                  className="shrink-0 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void revertLegacyCategoryToCodeHierarchy(category.id);
+                  }}
+                >
+                  Restore to code tree
+                </button>
+              )}
+              {!category.source_code_id && depth > 0 && (
+                <button
+                  type="button"
+                  className="shrink-0 rounded-sm border border-border px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void assignCategoryToParent(category.id, null);
+                  }}
+                >
+                  Move to top-level categories
+                </button>
+              )}
             </div>
+            <span className="text-right font-mono text-xs text-muted-foreground">{aggregate.interviews.size}</span>
+            <span className="text-right font-mono text-xs text-muted-foreground">{aggregate.references}</span>
+            <span />
           </div>
-          <span className="text-right font-mono text-xs text-muted-foreground">{aggregate.interviews.size}</span>
-          <span className="text-right font-mono text-xs text-muted-foreground">{aggregate.references}</span>
-        </div>
 
         {isExpanded && (
           <>
             {categoryCodes.map((code) => (
-              <div
-                key={code.id}
-                draggable
-                onDragStart={(e) => onCodeDragStart(e, code.id)}
-                className="grid grid-cols-[minmax(0,1fr)_88px_96px] items-center border-b border-border bg-background px-3 py-2 text-sm"
-                style={{ borderLeft: `4px solid ${getCodeAccent(code.color)}` }}
-              >
-                <div className="flex min-w-0 items-center gap-2" style={{ paddingLeft: `${(depth + 1) * 18 + 22}px` }}>
-                  <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: getCodeAccent(code.color) }} />
-                  <span className="truncate text-foreground">{code.label}</span>
+                <div
+                  key={code.id}
+                  draggable
+                  onDragStart={(e) => onCodeDragStart(e, code.id)}
+                  onDragEnd={() => setDraggedCodeId(null)}
+                  className="grid grid-cols-[minmax(0,1fr)_88px_96px_150px] items-center border-b border-border bg-background px-3 py-2 text-sm"
+                  style={{ borderLeft: `4px solid ${getCodeAccent(code.color)}` }}
+                >
+                  <div className="flex min-w-0 items-center gap-2" style={{ paddingLeft: `${(depth + 1) * 18 + 22}px` }}>
+                    <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: getCodeAccent(code.color) }} />
+                    <span className="truncate text-foreground">{code.label}</span>
+                  </div>
+                  <span className="text-right font-mono text-xs text-muted-foreground">{projectCodeStats[code.id]?.interviews.size || 0}</span>
+                  <span className="text-right font-mono text-xs text-muted-foreground">{projectCodeStats[code.id]?.uses || 0}</span>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      className="text-[11px] text-muted-foreground hover:text-foreground"
+                      onClick={() => removeCodeFromCategory(code.id, category.id)}
+                    >
+                      Remove from category
+                    </button>
+                  </div>
                 </div>
-                <span className="text-right font-mono text-xs text-muted-foreground">{projectCodeStats[code.id]?.interviews.size || 0}</span>
-                <div className="flex items-center justify-end gap-2">
-                  <span className="font-mono text-xs text-muted-foreground">{projectCodeStats[code.id]?.uses || 0}</span>
-                  <button
-                    type="button"
-                    className="text-[11px] text-muted-foreground hover:text-foreground"
-                    onClick={() => removeCodeFromCategory(code.id, category.id)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
             {childCategories.map((childCategory) => renderCategoryBranch(childCategory, depth + 1))}
           </>
         )}
@@ -1063,23 +1192,26 @@ const CodingWorkspace = () => {
                         <div className="border-b border-border px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                           Existing codes for this selection
                         </div>
-                        <ScrollArea className="h-[132px]">
-                          <div className="space-y-1 p-2">
-                            {codes.length === 0 ? (
-                              <p className="px-2 py-3 text-xs text-muted-foreground">No existing codes in this project yet.</p>
-                            ) : codes.map((code) => (
-                              <label key={code.id} className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-secondary">
-                                <Checkbox
-                                  checked={selectedCodeIds.includes(code.id)}
-                                  onCheckedChange={(checked) => toggleCodeSelection(code.id, checked === true)}
-                                />
-                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: getCodeAccent(code.color) }} />
-                                <span className="flex-1 truncate">{code.label}</span>
-                                <span className="font-mono text-[10px] text-muted-foreground">{codeFrequency[code.id] || 0}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </ScrollArea>
+                          <ScrollArea className="h-[132px]">
+                            <div className="space-y-1 p-2">
+                              {codes.length === 0 ? (
+                                <p className="px-2 py-3 text-xs text-muted-foreground">No existing codes in this project yet.</p>
+                              ) : orderedCodes.map((code) => (
+                                <label key={code.id} className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-secondary">
+                                  <Checkbox
+                                    checked={selectedCodeIds.includes(code.id)}
+                                    onCheckedChange={(checked) => toggleCodeSelection(code.id, checked === true)}
+                                  />
+                                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: getCodeAccent(code.color) }} />
+                                  <span className="flex flex-1 items-center gap-2 truncate" style={{ paddingLeft: `${code.depth * 16}px` }}>
+                                    {code.depth > 0 && <span className="text-[10px] text-muted-foreground">└</span>}
+                                    <span className="truncate">{code.label}</span>
+                                  </span>
+                                  <span className="font-mono text-[10px] text-muted-foreground">{codeFrequency[code.id] || 0}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </ScrollArea>
                       </div>
                       <div className="flex gap-2">
                         <Button size="sm" variant="ghost" className="flex-1" onClick={() => { setPopoverOpen(false); setSelection(null); setAiSuggestions([]); setSelectedCodeIds([]); window.getSelection()?.removeAllRanges(); }}>Cancel</Button>
@@ -1175,27 +1307,57 @@ const CodingWorkspace = () => {
               <TabsContent value="codes" className="mt-0 flex-1 overflow-hidden">
                 <ScrollArea className="h-full">
                   <div className="p-3 space-y-3">
-                    {codes.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-8 text-center">No codes yet. Select text to create your first code.</p>
-                    ) : (
-                      <div className="overflow-hidden rounded-lg border border-border bg-background">
-                        <div className="grid grid-cols-[minmax(0,1fr)_88px_88px_96px] border-b border-border bg-secondary/20 px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                          <span>Name</span>
-                          <span className="text-right">Origin</span>
-                          <span className="text-right">Interviews</span>
-                          <span className="text-right">References</span>
-                        </div>
-                        {codes.map((code) => {
-                          const badge = originBadgeStyles[code.origin || "researcher"];
-                          const stats = projectCodeStats[code.id];
-                          const interviewCount = stats?.interviews.size || 0;
-                          const useCount = stats?.uses || 0;
-                          return (
-                            <div
-                              key={code.id}
-                              className={`grid w-full grid-cols-[minmax(0,1fr)_88px_60px_60px_40px] items-center border-b border-border px-3 py-2 text-left text-sm transition-colors last:border-b-0 hover:bg-secondary/30 ${selectedCodeFocusId === code.id ? "bg-secondary/40" : ""}`}
-                              style={{ borderLeft: `4px solid ${getCodeAccent(code.color)}` }}
-                            >
+                      {codes.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-8 text-center">No codes yet. Select text to create your first code.</p>
+                      ) : (
+                        <>
+                          <div
+                            className={`rounded-lg border border-dashed px-3 py-3 text-sm transition-colors ${draggedCodeId ? "border-primary/50 bg-primary/5 text-foreground" : "border-border bg-secondary/10 text-muted-foreground"}`}
+                            onDragOver={(e) => {
+                              if (!draggedCodeId) return;
+                              allowDrop(e);
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              const codeId = e.dataTransfer.getData("text/qualcode-code") || draggedCodeId;
+                              if (codeId) void moveCodeToParent(codeId, null);
+                              setDraggedCodeId(null);
+                            }}
+                          >
+                            Drop a code here to move it back to the top level.
+                          </div>
+                          <div className="overflow-hidden rounded-lg border border-border bg-background">
+                          <div className="grid grid-cols-[minmax(0,1fr)_88px_88px_96px] border-b border-border bg-secondary/20 px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                            <span>Name</span>
+                            <span className="text-right">Origin</span>
+                            <span className="text-right">Interviews</span>
+                            <span className="text-right">References</span>
+                          </div>
+                            {orderedCodes.map((code) => {
+                            const badge = originBadgeStyles[code.origin || "researcher"];
+                            const stats = projectCodeStats[code.id];
+                            const interviewCount = stats?.interviews.size || 0;
+                            const useCount = stats?.uses || 0;
+                              return (
+                              <div
+                                key={code.id}
+                                draggable
+                                onDragStart={(e) => onCodeDragStart(e, code.id)}
+                                onDragEnd={() => setDraggedCodeId(null)}
+                                onDragOver={(e) => {
+                                  if (!draggedCodeId || draggedCodeId === code.id) return;
+                                  allowDrop(e);
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  const codeId = e.dataTransfer.getData("text/qualcode-code") || draggedCodeId;
+                                  if (codeId) void moveCodeToParent(codeId, code.id);
+                                  setDraggedCodeId(null);
+                                }}
+                                className={`grid w-full grid-cols-[minmax(0,1fr)_88px_60px_60px_40px] items-center border-b border-border px-3 py-2 text-left text-sm transition-colors last:border-b-0 hover:bg-secondary/30 ${selectedCodeFocusId === code.id ? "bg-secondary/40" : ""}`}
+                                style={{ borderLeft: `4px solid ${getCodeAccent(code.color)}` }}
+                              >
                               <button
                                 className="flex min-w-0 flex-1 items-center gap-2 text-left"
                                 onClick={() => {
@@ -1206,10 +1368,13 @@ const CodingWorkspace = () => {
                                   setSelectedCodeFocusId(code.id);
                                   scrollToCode(code.id);
                                 }}
-                              >
-                                <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: getCodeAccent(code.color) }} />
-                                <span className="truncate text-foreground font-body">{code.label}</span>
-                              </button>
+                                >
+                                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: getCodeAccent(code.color) }} />
+                                  <span className="flex min-w-0 items-center gap-2" style={{ paddingLeft: `${code.depth * 16}px` }}>
+                                    {code.depth > 0 && <span className="text-[10px] text-muted-foreground">└</span>}
+                                    <span className="truncate text-foreground font-body">{code.label}</span>
+                                  </span>
+                                </button>
                               <span className="flex justify-end">
                                 {badge ? (
                                   <span className={`shrink-0 rounded-sm border px-1.5 py-0.5 font-mono text-[10px] uppercase leading-none ${badge.className}`}>
@@ -1235,10 +1400,11 @@ const CodingWorkspace = () => {
                                 </Button>
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                            );
+                          })}
+                          </div>
+                        </>
+                      )}
 
                     {selectedCodeFocusId && (
                       <div className="mt-4 rounded-lg border border-border bg-card p-3">
@@ -1291,59 +1457,67 @@ const CodingWorkspace = () => {
                       </div>
                     </div>
 
-                    <div>
-                      <div className="mb-2 flex items-center gap-2">
-                        <FolderTree className="h-4 w-4 text-muted-foreground" />
-                        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Uncategorized codes</p>
-                      </div>
-                      <div className="space-y-2">
-                        {uncategorizedCodes.length === 0 ? (
-                          <div className="rounded-md bg-secondary/20 px-3 py-3 text-sm text-muted-foreground">All current codes are already organized into categories.</div>
-                        ) : uncategorizedCodes.map((code) => (
-                          <div
-                            key={code.id}
-                            draggable
-                            onDragStart={(e) => onCodeDragStart(e, code.id)}
-                            onDragOver={allowDrop}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              const draggedCodeId = e.dataTransfer.getData("text/qualcode-code");
-                              if (draggedCodeId) createCategoryFromCode(code.id, draggedCodeId);
-                            }}
-                            className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm"
-                            style={{ borderLeft: `4px solid ${getCodeAccent(code.color)}` }}
-                          >
-                            <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: getCodeAccent(code.color) }} />
-                            <span className="flex-1 truncate">{code.label}</span>
-                            <span className="font-mono text-[10px] text-muted-foreground">{projectCodeStats[code.id]?.uses || 0} ref.</span>
-                          </div>
-                        ))}
+                      <div>
+                        <div className="mb-2 flex items-center gap-2">
+                          <FolderTree className="h-4 w-4 text-muted-foreground" />
+                          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Uncategorized codes</p>
+                        </div>
+                        <div
+                          className="mb-2 rounded-md border border-dashed border-border bg-secondary/20 px-3 py-2 text-xs text-muted-foreground"
+                          onDragOver={allowDrop}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            const codeId = e.dataTransfer.getData("text/qualcode-code") || draggedCodeId;
+                            if (codeId) void removeCodeFromAllCategories(codeId);
+                            setDraggedCodeId(null);
+                          }}
+                        >
+                          Drop a code here to move it back to uncategorized.
+                        </div>
+                        <div
+                          className="space-y-2 rounded-md"
+                          onDragOver={allowDrop}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            const codeId = e.dataTransfer.getData("text/qualcode-code") || draggedCodeId;
+                            if (codeId) void removeCodeFromAllCategories(codeId);
+                            setDraggedCodeId(null);
+                          }}
+                        >
+                              {uncategorizedCodes.length === 0 ? (
+                                <div className="rounded-md bg-secondary/20 px-3 py-3 text-sm text-muted-foreground">All current codes are already organized into categories.</div>
+                              ) : uncategorizedCodes.map((code) => (
+                              <div
+                                key={code.id}
+                                draggable
+                                onDragStart={(e) => onCodeDragStart(e, code.id)}
+                                onDragEnd={() => setDraggedCodeId(null)}
+                                className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm"
+                                style={{ borderLeft: `4px solid ${getCodeAccent(code.color)}` }}
+                              >
+                              <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: getCodeAccent(code.color) }} />
+                              <span className="flex flex-1 items-center gap-2 truncate" style={{ paddingLeft: `${code.depth * 16}px` }}>
+                                {code.depth > 0 && <span className="text-[10px] text-muted-foreground">└</span>}
+                                <span className="truncate">{code.label}</span>
+                              </span>
+                              <span className="font-mono text-[10px] text-muted-foreground">{projectCodeStats[code.id]?.uses || 0} ref.</span>
+                            </div>
+                          ))}
                       </div>
                     </div>
 
                     <div className="space-y-3">
-                      {categories.length === 0 ? (
-                        <div className="rounded-md bg-secondary/20 px-3 py-4 text-sm text-muted-foreground">No categories yet. Create one, then drag codes into it.</div>
-                      ) : (
-                        <>
-                          <div
-                            className="rounded-md border border-dashed border-border bg-secondary/20 px-3 py-2 text-xs text-muted-foreground"
-                            onDragOver={allowDrop}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              const categoryId = e.dataTransfer.getData("text/qualcode-category");
-                              if (categoryId) assignCategoryToParent(categoryId, null);
-                            }}
-                          >
-                            Drop a category here to move it back to the top level.
-                          </div>
-                          <div className="overflow-hidden rounded-lg border border-border bg-background">
-                            <div className="grid grid-cols-[minmax(0,1fr)_88px_96px] border-b border-border bg-secondary/20 px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                              <span>Name</span>
-                              <span className="text-right">Interviews</span>
-                              <span className="text-right">References</span>
-                            </div>
+                        {categories.length === 0 ? (
+                          <div className="rounded-md bg-secondary/20 px-3 py-4 text-sm text-muted-foreground">No categories yet. Create one, then drag codes into it.</div>
+                        ) : (
+                          <>
+                            <div className="overflow-hidden rounded-lg border border-border bg-background">
+                              <div className="grid grid-cols-[minmax(0,1fr)_88px_96px_150px] border-b border-border bg-secondary/20 px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                                <span>Name</span>
+                                <span className="text-right">Proj. Interviews</span>
+                                <span className="text-right">Proj. References</span>
+                                <span className="text-right">Action</span>
+                              </div>
                             <div className="space-y-3 p-3">
                               {rootCategories.map((category) => renderCategoryBranch(category))}
                             </div>
@@ -1480,10 +1654,10 @@ const CodingWorkspace = () => {
                 placeholder="Code label"
               />
             </div>
-            {theories.length > 0 && (
-              <div className="space-y-2">
-                <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Theory Link</label>
-                <Select value={editState.theory_id || "none"} onValueChange={(v) => setEditState(s => ({ ...s, theory_id: v }))}>
+              {theories.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Theory Link</label>
+                  <Select value={editState.theory_id || "none"} onValueChange={(v) => setEditState(s => ({ ...s, theory_id: v }))}>
                   <SelectTrigger><SelectValue placeholder="Select theory" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">No theory</SelectItem>
@@ -1496,12 +1670,28 @@ const CodingWorkspace = () => {
                       </SelectItem>
                     ))}
                   </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="space-y-2">
+                <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Parent Code</label>
+                <Select value={(editState.parent_code_id as string) || "none"} onValueChange={(v) => setEditState(s => ({ ...s, parent_code_id: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Top-level code" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Top-level code</SelectItem>
+                    {orderedCodes
+                      .filter((candidate) => candidate.id !== codeToEdit?.id && (!codeToEdit || !getDescendantCodeIds(codeToEdit.id).includes(candidate.id)))
+                      .map((candidate) => (
+                        <SelectItem key={candidate.id} value={candidate.id}>
+                          {`${"  ".repeat(candidate.depth)}${candidate.label}`}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
                 </Select>
               </div>
-            )}
-            <div className="space-y-2">
-              <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Definition</label>
-              <Textarea
+              <div className="space-y-2">
+                <label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Definition</label>
+                <Textarea
                 value={editState.definition || ""}
                 onChange={(e) => setEditState(s => ({ ...s, definition: e.target.value }))}
                 placeholder="What does this code mean?"

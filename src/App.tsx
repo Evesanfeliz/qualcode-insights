@@ -13,6 +13,7 @@ import MemoPad from "./pages/MemoPad";
 import Literature from "./pages/Literature";
 import Theory from "./pages/Theory";
 import Canvas from "./pages/Canvas";
+import AIAnalysis from "./pages/AIAnalysis";
 import OnboardingWelcome from "./pages/OnboardingWelcome";
 import OnboardingPractice from "./pages/OnboardingPractice";
 import AcceptInvite from "./pages/AcceptInvite";
@@ -37,11 +38,12 @@ const App = () => (
           <Route path="/project/:projectId/transcripts" element={<TranscriptManager />} />
           <Route path="/project/:projectId/code/:transcriptId" element={<CodingWorkspace />} />
           <Route path="/project/:projectId/codebook" element={<Codebook />} />
-          <Route path="/project/:projectId/memos" element={<MemoPad />} />
-          <Route path="/project/:projectId/literature" element={<Literature />} />
-          <Route path="/project/:projectId/theory" element={<Theory />} />
-          <Route path="/project/:projectId/canvas" element={<Canvas />} />
-          <Route path="*" element={<NotFound />} />
+            <Route path="/project/:projectId/memos" element={<MemoPad />} />
+            <Route path="/project/:projectId/literature" element={<Literature />} />
+            <Route path="/project/:projectId/theory" element={<Theory />} />
+            <Route path="/project/:projectId/canvas" element={<Canvas />} />
+            <Route path="/project/:projectId/ai-analysis" element={<AIAnalysis />} />
+            <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>
     </TooltipProvider>

@@ -404,6 +404,7 @@ function CanvasInner() {
     { label: "Literature", icon: BookMarked, path: `/project/${projectId}/literature` },
     { label: "Theory", icon: Lightbulb, path: `/project/${projectId}/theory` },
     { label: "Canvas", icon: Network, path: `/project/${projectId}/canvas`, active: true },
+    { label: "AI Analysis", icon: Sparkles, path: `/project/${projectId}/ai-analysis` },
   ];
 
   return (
