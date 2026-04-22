@@ -178,9 +178,21 @@ const TranscriptManager = () => {
 
   const openEditDialog = (t: Transcript) => {
     setEditingTranscript(t);
+    
+    // Ensure the date is formatted as YYYY-MM-DD for the HTML5 date input
+    let formattedDate = "";
+    if (t.interview_date) {
+      try {
+        // If it's already an ISO string or YYYY-MM-DD, take the date part
+        formattedDate = t.interview_date.split('T')[0];
+      } catch (e) {
+        console.error("Error parsing date:", e);
+      }
+    }
+
     setEditForm({
-      pseudonym: t.participant_pseudonym,
-      interviewDate: t.interview_date ?? "",
+      pseudonym: t.participant_pseudonym || "",
+      interviewDate: formattedDate,
       assignedTo: t.assigned_to ?? "",
       status: t.status ?? "uploaded",
     });
@@ -453,7 +465,14 @@ const TranscriptManager = () => {
                       {t.interview_date && (
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {format(new Date(t.interview_date), "MMM d, yyyy")}
+                          {(() => {
+                            try {
+                              const d = new Date(t.interview_date);
+                              return isNaN(d.getTime()) ? "Invalid date" : format(d, "MMM d, yyyy");
+                            } catch (e) {
+                              return "Invalid date";
+                            }
+                          })()}
                         </span>
                       )}
                       {t.assigned_to && (
