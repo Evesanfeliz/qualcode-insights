@@ -72,7 +72,7 @@ const TranscriptManager = () => {
   const [newTranscript, setNewTranscript] = useState({
     pseudonym: "",
     interviewDate: "",
-    assignedTo: "",
+    assignedTo: "unassigned",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -159,14 +159,14 @@ const TranscriptManager = () => {
         content,
         word_count: wordCount,
         interview_date: newTranscript.interviewDate || null,
-        assigned_to: newTranscript.assignedTo || null,
+        assigned_to: newTranscript.assignedTo === "unassigned" ? null : newTranscript.assignedTo,
         status: "uploaded",
       });
       if (insertError) throw insertError;
 
       toast.success("Transcript uploaded!");
       setDialogOpen(false);
-      setNewTranscript({ pseudonym: "", interviewDate: "", assignedTo: "" });
+      setNewTranscript({ pseudonym: "", interviewDate: "", assignedTo: "unassigned" });
       setSelectedFile(null);
       loadData();
     } catch (err: any) {
@@ -177,23 +177,22 @@ const TranscriptManager = () => {
   };
 
   const openEditDialog = (t: Transcript) => {
-    setEditingTranscript(t);
-    
     // Ensure the date is formatted as YYYY-MM-DD for the HTML5 date input
     let formattedDate = "";
     if (t.interview_date) {
       try {
-        // If it's already an ISO string or YYYY-MM-DD, take the date part
-        formattedDate = t.interview_date.split('T')[0];
+        const dateStr = String(t.interview_date);
+        formattedDate = dateStr.split('T')[0];
       } catch (e) {
-        console.error("Error parsing date:", e);
+        console.error("Error parsing date string:", e);
       }
     }
 
+    setEditingTranscript(t);
     setEditForm({
       pseudonym: t.participant_pseudonym || "",
       interviewDate: formattedDate,
-      assignedTo: t.assigned_to ?? "",
+      assignedTo: t.assigned_to || "unassigned",
       status: t.status ?? "uploaded",
     });
     setEditDialogOpen(true);
@@ -212,7 +211,7 @@ const TranscriptManager = () => {
         .update({
           participant_pseudonym: editForm.pseudonym.trim(),
           interview_date: editForm.interviewDate || null,
-          assigned_to: editForm.assignedTo || null,
+          assigned_to: editForm.assignedTo === "unassigned" ? null : editForm.assignedTo,
           status: editForm.status || "uploaded",
         })
         .eq("id", editingTranscript.id);
@@ -348,6 +347,7 @@ const TranscriptManager = () => {
                       <SelectValue placeholder="Select researcher" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="unassigned">— Unassigned —</SelectItem>
                       {members.map((m, i) => (
                         <SelectItem key={m.user_id} value={m.user_id}>
                           {m.display_name || (i === 0 ? "Researcher A" : "Researcher B")}
@@ -566,7 +566,7 @@ const TranscriptManager = () => {
                   <SelectValue placeholder="Select researcher" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">— Unassigned —</SelectItem>
+                  <SelectItem value="unassigned">— Unassigned —</SelectItem>
                   {members.map((m, i) => (
                     <SelectItem key={m.user_id} value={m.user_id}>
                       {m.display_name || (i === 0 ? "Researcher A" : "Researcher B")}
