@@ -1133,7 +1133,7 @@ const CodingWorkspace = () => {
         {/* Transcript panel */}
         <ResizablePanel defaultSize={60} minSize={40}>
           <ScrollArea className="h-full">
-            <div className="p-8">
+            <div className="p-5">
               <div className="mb-4 flex items-center justify-end gap-2">
                 <div className="mr-auto flex items-center gap-2">
                   <Button variant={selectionMode === "code" ? "default" : "outline"} size="sm" onClick={() => setSelectionMode("code")} className="gap-1.5">
@@ -1151,7 +1151,7 @@ const CodingWorkspace = () => {
               </div>
               <div
                 ref={contentRef}
-                className="whitespace-pre-wrap font-body leading-[1.8] text-foreground selection:bg-primary/20"
+                className="whitespace-pre-wrap font-body leading-[1.5] text-foreground selection:bg-primary/20"
                 style={{ fontSize: `${fontScale}px` }}
                 onMouseUp={handleMouseUp}
               >
