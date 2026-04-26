@@ -77,6 +77,7 @@ const originBadgeStyles: Record<string, { label: string; className: string } | n
 };
 
 const getCodeAccent = (color: string | null) => color || "hsl(var(--muted-foreground))";
+const normalizeSearch = (value: string) => value.trim().toLowerCase();
 
 const CodingWorkspace = () => {
   const { projectId, transcriptId } = useParams<{ projectId: string; transcriptId: string }>();
@@ -98,6 +99,7 @@ const CodingWorkspace = () => {
   const [selection, setSelection] = useState<{ start: number; end: number; text: string } | null>(null);
   const [popoverPos, setPopoverPos] = useState<{ x: number; y: number } | null>(null);
   const [newCodeLabel, setNewCodeLabel] = useState("");
+  const [selectionCodeSearch, setSelectionCodeSearch] = useState("");
   const [newCodeTheoryId, setNewCodeTheoryId] = useState("none");
   const [selectedCodeIds, setSelectedCodeIds] = useState<string[]>([]);
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -115,12 +117,15 @@ const CodingWorkspace = () => {
   const [categoryThemes, setCategoryThemes] = useState<CategoryTheme[]>([]);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newThemeName, setNewThemeName] = useState("");
-    const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>([]);
-    const [codeToEdit, setCodeToEdit] = useState<Code | null>(null);
-    const [editState, setEditState] = useState<Partial<Code>>({});
-    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [draggedCodeId, setDraggedCodeId] = useState<string | null>(null);
-    const popoverRef = useRef<HTMLDivElement>(null);
+  const [codesSearchQuery, setCodesSearchQuery] = useState("");
+  const [categoriesSearchQuery, setCategoriesSearchQuery] = useState("");
+  const [themesSearchQuery, setThemesSearchQuery] = useState("");
+  const [expandedCategoryIds, setExpandedCategoryIds] = useState<string[]>([]);
+  const [codeToEdit, setCodeToEdit] = useState<Code | null>(null);
+  const [editState, setEditState] = useState<Partial<Code>>({});
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [draggedCodeId, setDraggedCodeId] = useState<string | null>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
   // Close popover on outside click
   useEffect(() => {
@@ -746,6 +751,15 @@ const CodingWorkspace = () => {
 
   const rootCategories = useMemo(() => categoriesByParent.root || [], [categoriesByParent]);
 
+  const matchesCodeQuery = useCallback((code: Pick<Code, "label" | "definition" | "example_quote">, rawQuery: string) => {
+    const query = normalizeSearch(rawQuery);
+    if (!query) return true;
+
+    return [code.label, code.definition, code.example_quote]
+      .filter(Boolean)
+      .some((value) => value!.toLowerCase().includes(query));
+  }, []);
+
   const getDescendantCategoryIds = useCallback((categoryId: string): string[] => {
     const stack = [...((categoriesByParent[categoryId] || []).map((category) => category.id))];
     const ids: string[] = [];
@@ -758,6 +772,61 @@ const CodingWorkspace = () => {
 
     return ids;
   }, [categoriesByParent]);
+
+  const categoryMatchesQuery = useCallback((categoryId: string, rawQuery: string): boolean => {
+    const query = normalizeSearch(rawQuery);
+    if (!query) return true;
+
+    const category = categories.find((item) => item.id === categoryId);
+    if (!category) return false;
+
+    if ([category.name, category.description].filter(Boolean).some((value) => value!.toLowerCase().includes(query))) {
+      return true;
+    }
+
+    const relatedCodes = (codeIdsByCategory[categoryId] || [])
+      .map((codeId) => codes.find((code) => code.id === codeId))
+      .filter(Boolean) as Code[];
+
+    if (relatedCodes.some((code) => matchesCodeQuery(code, query))) {
+      return true;
+    }
+
+    return (categoriesByParent[categoryId] || []).some((childCategory) => categoryMatchesQuery(childCategory.id, query));
+  }, [categories, codeIdsByCategory, codes, matchesCodeQuery, categoriesByParent]);
+
+  const filteredSelectionCodes = useMemo(() => {
+    return orderedCodes.filter((code) => matchesCodeQuery(code, selectionCodeSearch));
+  }, [orderedCodes, matchesCodeQuery, selectionCodeSearch]);
+
+  const filteredWorkspaceCodes = useMemo(() => {
+    return orderedCodes.filter((code) => matchesCodeQuery(code, codesSearchQuery));
+  }, [orderedCodes, matchesCodeQuery, codesSearchQuery]);
+
+  const filteredUncategorizedCodes = useMemo(() => {
+    return uncategorizedCodes.filter((code) => matchesCodeQuery(code, categoriesSearchQuery));
+  }, [uncategorizedCodes, matchesCodeQuery, categoriesSearchQuery]);
+
+  const filteredRootCategories = useMemo(() => {
+    return rootCategories.filter((category) => categoryMatchesQuery(category.id, categoriesSearchQuery));
+  }, [rootCategories, categoryMatchesQuery, categoriesSearchQuery]);
+
+  const filteredUnthemedCategories = useMemo(() => {
+    return unthemedCategories.filter((category) => categoryMatchesQuery(category.id, themesSearchQuery));
+  }, [unthemedCategories, categoryMatchesQuery, themesSearchQuery]);
+
+  const filteredThemes = useMemo(() => {
+    const query = normalizeSearch(themesSearchQuery);
+    if (!query) return themes;
+
+    return themes.filter((theme) => {
+      if ([theme.name, theme.description].filter(Boolean).some((value) => value!.toLowerCase().includes(query))) {
+        return true;
+      }
+
+      return (categoryIdsByTheme[theme.id] || []).some((categoryId) => categoryMatchesQuery(categoryId, query));
+    });
+  }, [themes, themesSearchQuery, categoryIdsByTheme, categoryMatchesQuery]);
 
   const getCategoryAggregate = useCallback((categoryId: string) => {
     const rootCategory = categories.find((category) => category.id === categoryId);
@@ -1005,9 +1074,12 @@ const CodingWorkspace = () => {
   const renderCategoryBranch = (category: Category, depth = 0): React.ReactNode => {
     const aggregate = getCategoryAggregate(category.id);
     const categoryCodeIds = codeIdsByCategory[category.id] || [];
-    const categoryCodes = categoryCodeIds.map((codeId) => codes.find((code) => code.id === codeId)).filter(Boolean) as Code[];
-    const childCategories = categoriesByParent[category.id] || [];
-    const isExpanded = expandedCategoryIds.includes(category.id);
+    const categoryCodes = categoryCodeIds
+      .map((codeId) => codes.find((code) => code.id === codeId))
+      .filter(Boolean)
+      .filter((code) => matchesCodeQuery(code as Code, categoriesSearchQuery)) as Code[];
+    const childCategories = (categoriesByParent[category.id] || []).filter((childCategory) => categoryMatchesQuery(childCategory.id, categoriesSearchQuery));
+    const isExpanded = normalizeSearch(categoriesSearchQuery) ? true : expandedCategoryIds.includes(category.id);
 
     return (
       <div key={category.id}>
@@ -1192,11 +1264,21 @@ const CodingWorkspace = () => {
                         <div className="border-b border-border px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                           Existing codes for this selection
                         </div>
+                          <div className="border-b border-border px-2 py-2">
+                            <Input
+                              placeholder="Search codes..."
+                              value={selectionCodeSearch}
+                              onChange={(e) => setSelectionCodeSearch(e.target.value)}
+                              className="h-8 text-sm"
+                            />
+                          </div>
                           <ScrollArea className="h-[132px]">
                             <div className="space-y-1 p-2">
                               {codes.length === 0 ? (
                                 <p className="px-2 py-3 text-xs text-muted-foreground">No existing codes in this project yet.</p>
-                              ) : orderedCodes.map((code) => (
+                              ) : filteredSelectionCodes.length === 0 ? (
+                                <p className="px-2 py-3 text-xs text-muted-foreground">No codes match this search.</p>
+                              ) : filteredSelectionCodes.map((code) => (
                                 <label key={code.id} className="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-secondary">
                                   <Checkbox
                                     checked={selectedCodeIds.includes(code.id)}
@@ -1307,8 +1389,16 @@ const CodingWorkspace = () => {
               <TabsContent value="codes" className="mt-0 flex-1 overflow-hidden">
                 <ScrollArea className="h-full">
                   <div className="p-3 space-y-3">
+                      <Input
+                        placeholder="Search codes..."
+                        value={codesSearchQuery}
+                        onChange={(e) => setCodesSearchQuery(e.target.value)}
+                        className="h-9 text-sm"
+                      />
                       {codes.length === 0 ? (
                         <p className="text-sm text-muted-foreground py-8 text-center">No codes yet. Select text to create your first code.</p>
+                      ) : filteredWorkspaceCodes.length === 0 ? (
+                        <div className="rounded-md bg-secondary/20 px-3 py-4 text-sm text-muted-foreground">No codes match this search.</div>
                       ) : (
                         <>
                           <div
@@ -1333,7 +1423,7 @@ const CodingWorkspace = () => {
                             <span className="text-right">Interviews</span>
                             <span className="text-right">References</span>
                           </div>
-                            {orderedCodes.map((code) => {
+                            {filteredWorkspaceCodes.map((code) => {
                             const badge = originBadgeStyles[code.origin || "researcher"];
                             const stats = projectCodeStats[code.id];
                             const interviewCount = stats?.interviews.size || 0;
@@ -1457,6 +1547,13 @@ const CodingWorkspace = () => {
                       </div>
                     </div>
 
+                    <Input
+                      placeholder="Search categories or codes..."
+                      value={categoriesSearchQuery}
+                      onChange={(e) => setCategoriesSearchQuery(e.target.value)}
+                      className="h-9 text-sm"
+                    />
+
                       <div>
                         <div className="mb-2 flex items-center gap-2">
                           <FolderTree className="h-4 w-4 text-muted-foreground" />
@@ -1484,9 +1581,13 @@ const CodingWorkspace = () => {
                             setDraggedCodeId(null);
                           }}
                         >
-                              {uncategorizedCodes.length === 0 ? (
-                                <div className="rounded-md bg-secondary/20 px-3 py-3 text-sm text-muted-foreground">All current codes are already organized into categories.</div>
-                              ) : uncategorizedCodes.map((code) => (
+                              {filteredUncategorizedCodes.length === 0 ? (
+                                <div className="rounded-md bg-secondary/20 px-3 py-3 text-sm text-muted-foreground">
+                                  {normalizeSearch(categoriesSearchQuery)
+                                    ? "No uncategorized codes match this search."
+                                    : "All current codes are already organized into categories."}
+                                </div>
+                              ) : filteredUncategorizedCodes.map((code) => (
                               <div
                                 key={code.id}
                                 draggable
@@ -1509,6 +1610,8 @@ const CodingWorkspace = () => {
                     <div className="space-y-3">
                         {categories.length === 0 ? (
                           <div className="rounded-md bg-secondary/20 px-3 py-4 text-sm text-muted-foreground">No categories yet. Create one, then drag codes into it.</div>
+                        ) : filteredRootCategories.length === 0 ? (
+                          <div className="rounded-md bg-secondary/20 px-3 py-4 text-sm text-muted-foreground">No categories or codes match this search.</div>
                         ) : (
                           <>
                             <div className="overflow-hidden rounded-lg border border-border bg-background">
@@ -1519,7 +1622,7 @@ const CodingWorkspace = () => {
                                 <span className="text-right">Action</span>
                               </div>
                             <div className="space-y-3 p-3">
-                              {rootCategories.map((category) => renderCategoryBranch(category))}
+                              {filteredRootCategories.map((category) => renderCategoryBranch(category))}
                             </div>
                           </div>
                         </>
@@ -1540,15 +1643,26 @@ const CodingWorkspace = () => {
                       </div>
                     </div>
 
+                    <Input
+                      placeholder="Search themes, categories, or codes..."
+                      value={themesSearchQuery}
+                      onChange={(e) => setThemesSearchQuery(e.target.value)}
+                      className="h-9 text-sm"
+                    />
+
                     <div>
                       <div className="mb-2 flex items-center gap-2">
                         <Layers3 className="h-4 w-4 text-muted-foreground" />
                         <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Available categories</p>
                       </div>
                       <div className="space-y-2">
-                        {unthemedCategories.length === 0 ? (
-                          <div className="rounded-md bg-secondary/20 px-3 py-3 text-sm text-muted-foreground">All categories are already organized into themes.</div>
-                        ) : unthemedCategories.map((category) => {
+                        {filteredUnthemedCategories.length === 0 ? (
+                          <div className="rounded-md bg-secondary/20 px-3 py-3 text-sm text-muted-foreground">
+                            {normalizeSearch(themesSearchQuery)
+                              ? "No available categories match this search."
+                              : "All categories are already organized into themes."}
+                          </div>
+                        ) : filteredUnthemedCategories.map((category) => {
                           const relatedCodes = codeIdsByCategory[category.id] || [];
                           return (
                             <div
@@ -1569,7 +1683,9 @@ const CodingWorkspace = () => {
                     <div className="space-y-3">
                       {themes.length === 0 ? (
                         <div className="rounded-md bg-secondary/20 px-3 py-4 text-sm text-muted-foreground">No themes yet. Create one, then drag categories into it.</div>
-                      ) : themes.map((theme) => {
+                      ) : filteredThemes.length === 0 ? (
+                        <div className="rounded-md bg-secondary/20 px-3 py-4 text-sm text-muted-foreground">No themes, categories, or codes match this search.</div>
+                      ) : filteredThemes.map((theme) => {
                         const themeCategoryIds = categoryIdsByTheme[theme.id] || [];
                         const themeCategories = themeCategoryIds.map((categoryId) => categories.find((category) => category.id === categoryId)).filter(Boolean) as Category[];
                         return (
