@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Upload, FileText, Calendar, User, BookOpen, StickyNote, BookMarked, Lightbulb, Network, ChevronRight, HelpCircle, X, Users, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Upload, FileText, Calendar, User, BookOpen, StickyNote, BookMarked, Lightbulb, Network, ChevronRight, HelpCircle, X, Users, Pencil, Trash2, Sparkles } from "lucide-react";
 import { HelpModal } from "@/components/HelpModal";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -27,6 +27,7 @@ import { ProjectInviteModal } from "@/components/ProjectInviteModal";
 type Transcript = {
   id: string;
   project_id: string;
+  participant_code: string | null;
   participant_pseudonym: string;
   file_url: string | null;
   content: string;
@@ -71,8 +72,9 @@ const TranscriptManager = () => {
   // Upload state
   const [newTranscript, setNewTranscript] = useState({
     pseudonym: "",
+    participantCode: "",
     interviewDate: "",
-    assignedTo: "unassigned",
+    assignedTo: "",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -82,6 +84,7 @@ const TranscriptManager = () => {
   const [editingTranscript, setEditingTranscript] = useState<Transcript | null>(null);
   const [editForm, setEditForm] = useState({
     pseudonym: "",
+    participantCode: "",
     interviewDate: "",
     assignedTo: "",
     status: "",
@@ -155,18 +158,19 @@ const TranscriptManager = () => {
       const { error: insertError } = await supabase.from("transcripts").insert({
         project_id: projectId,
         participant_pseudonym: newTranscript.pseudonym,
+        participant_code: newTranscript.participantCode.trim() || null,
         file_url: urlData.publicUrl,
         content,
         word_count: wordCount,
         interview_date: newTranscript.interviewDate || null,
-        assigned_to: newTranscript.assignedTo === "unassigned" ? null : newTranscript.assignedTo,
+        assigned_to: newTranscript.assignedTo || null,
         status: "uploaded",
       });
       if (insertError) throw insertError;
 
       toast.success("Transcript uploaded!");
       setDialogOpen(false);
-      setNewTranscript({ pseudonym: "", interviewDate: "", assignedTo: "unassigned" });
+      setNewTranscript({ pseudonym: "", participantCode: "", interviewDate: "", assignedTo: "" });
       setSelectedFile(null);
       loadData();
     } catch (err: any) {
@@ -177,22 +181,12 @@ const TranscriptManager = () => {
   };
 
   const openEditDialog = (t: Transcript) => {
-    // Ensure the date is formatted as YYYY-MM-DD for the HTML5 date input
-    let formattedDate = "";
-    if (t.interview_date) {
-      try {
-        const dateStr = String(t.interview_date);
-        formattedDate = dateStr.split('T')[0];
-      } catch (e) {
-        console.error("Error parsing date string:", e);
-      }
-    }
-
     setEditingTranscript(t);
     setEditForm({
-      pseudonym: t.participant_pseudonym || "",
-      interviewDate: formattedDate,
-      assignedTo: t.assigned_to || "unassigned",
+      pseudonym: t.participant_pseudonym,
+      participantCode: t.participant_code ?? "",
+      interviewDate: t.interview_date ?? "",
+      assignedTo: t.assigned_to ?? "",
       status: t.status ?? "uploaded",
     });
     setEditDialogOpen(true);
@@ -210,8 +204,9 @@ const TranscriptManager = () => {
         .from("transcripts")
         .update({
           participant_pseudonym: editForm.pseudonym.trim(),
+          participant_code: editForm.participantCode.trim() || null,
           interview_date: editForm.interviewDate || null,
-          assigned_to: editForm.assignedTo === "unassigned" ? null : editForm.assignedTo,
+          assigned_to: editForm.assignedTo || null,
           status: editForm.status || "uploaded",
         })
         .eq("id", editingTranscript.id);
@@ -284,6 +279,10 @@ const TranscriptManager = () => {
               <Network className="mr-1.5 h-3.5 w-3.5" />
               Canvas
             </Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate(`/project/${projectId}/ai-analysis`)}>
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              AI Analysis
+            </Button>
             <div className="w-px h-5 bg-border mx-1" />
             <Button variant="ghost" size="sm" onClick={() => setHelpOpen(true)} data-tour="help-link">
               <HelpCircle className="mr-1.5 h-3.5 w-3.5" />
@@ -329,6 +328,15 @@ const TranscriptManager = () => {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="participantCode">Participant Code</Label>
+                  <Input
+                    id="participantCode"
+                    placeholder="e.g. INT11"
+                    value={newTranscript.participantCode}
+                    onChange={(e) => setNewTranscript({ ...newTranscript, participantCode: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="interviewDate">Interview Date</Label>
                   <Input
                     id="interviewDate"
@@ -347,7 +355,6 @@ const TranscriptManager = () => {
                       <SelectValue placeholder="Select researcher" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="unassigned">— Unassigned —</SelectItem>
                       {members.map((m, i) => (
                         <SelectItem key={m.user_id} value={m.user_id}>
                           {m.display_name || (i === 0 ? "Researcher A" : "Researcher B")}
@@ -458,21 +465,21 @@ const TranscriptManager = () => {
                 >
                   <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
                   <div className="flex-1 min-w-0">
-                    <span className="font-heading text-base text-foreground">
-                      {t.participant_pseudonym}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-heading text-base text-foreground">
+                        {t.participant_pseudonym}
+                      </span>
+                      {t.participant_code && (
+                        <Badge variant="outline" className="text-[10px] font-mono">
+                          {t.participant_code}
+                        </Badge>
+                      )}
+                    </div>
                     <div className="mt-1 flex items-center gap-4 text-xs text-muted-foreground">
                       {t.interview_date && (
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {(() => {
-                            try {
-                              const d = new Date(t.interview_date);
-                              return isNaN(d.getTime()) ? "Invalid date" : format(d, "MMM d, yyyy");
-                            } catch (e) {
-                              return "Invalid date";
-                            }
-                          })()}
+                          {format(new Date(t.interview_date), "MMM d, yyyy")}
                         </span>
                       )}
                       {t.assigned_to && (
@@ -548,6 +555,15 @@ const TranscriptManager = () => {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="edit-participant-code">Participant Code</Label>
+              <Input
+                id="edit-participant-code"
+                placeholder="e.g. INT11"
+                value={editForm.participantCode}
+                onChange={(e) => setEditForm({ ...editForm, participantCode: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="edit-date">Interview Date</Label>
               <Input
                 id="edit-date"
@@ -566,7 +582,7 @@ const TranscriptManager = () => {
                   <SelectValue placeholder="Select researcher" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="unassigned">— Unassigned —</SelectItem>
+                  <SelectItem value="">— Unassigned —</SelectItem>
                   {members.map((m, i) => (
                     <SelectItem key={m.user_id} value={m.user_id}>
                       {m.display_name || (i === 0 ? "Researcher A" : "Researcher B")}

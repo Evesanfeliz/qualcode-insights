@@ -218,6 +218,7 @@ export type Database = {
         Row: {
           ai_suggested: boolean | null
           color: string | null
+          created_via_ai: boolean | null
           created_at: string | null
           created_by: string | null
           cycle: string | null
@@ -236,6 +237,7 @@ export type Database = {
         Insert: {
           ai_suggested?: boolean | null
           color?: string | null
+          created_via_ai?: boolean | null
           created_at?: string | null
           created_by?: string | null
           cycle?: string | null
@@ -254,6 +256,7 @@ export type Database = {
         Update: {
           ai_suggested?: boolean | null
           color?: string | null
+          created_via_ai?: boolean | null
           created_at?: string | null
           created_by?: string | null
           cycle?: string | null
@@ -774,6 +777,7 @@ export type Database = {
           file_url: string | null
           id: string
           interview_date: string | null
+          participant_code: string | null
           participant_pseudonym: string
           project_id: string
           status: string | null
@@ -786,6 +790,7 @@ export type Database = {
           file_url?: string | null
           id?: string
           interview_date?: string | null
+          participant_code?: string | null
           participant_pseudonym: string
           project_id: string
           status?: string | null
@@ -798,6 +803,7 @@ export type Database = {
           file_url?: string | null
           id?: string
           interview_date?: string | null
+          participant_code?: string | null
           participant_pseudonym?: string
           project_id?: string
           status?: string | null

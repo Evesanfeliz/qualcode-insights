@@ -44,6 +44,7 @@ type ProjectMember = {
 };
 
 type CodeWithDetails = {
+  created_via_ai: boolean | null;
   id: string;
   label: string;
   color: string | null;
@@ -75,9 +76,27 @@ type CodeExcerpt = {
 const ORIGIN_OPTIONS = [
   { value: "researcher", label: "Researcher" },
   { value: "in_vivo", label: "In Vivo" },
-  { value: "a_priori", label: "A Priori" },
-  { value: "ai_suggested", label: "AI Suggested" },
+  { value: "a_priori", label: "Priori Code" },
 ];
+
+const getStoredOrigin = (origin: string | null | undefined, theoryId: string | null | undefined) => {
+  if (theoryId) return "a_priori";
+  if (origin === "ai_suggested" || origin === "ai_initial") return "researcher";
+  if (origin === "a_priori") return "researcher";
+  return origin || "researcher";
+};
+
+const getOriginLabel = (code: Pick<CodeWithDetails, "origin" | "theory_id">) => {
+  const effectiveOrigin = getStoredOrigin(code.origin, code.theory_id);
+  switch (effectiveOrigin) {
+    case "in_vivo":
+      return "IN VIVO";
+    case "a_priori":
+      return "PRIORI CODE";
+    default:
+      return "RESEARCHER";
+  }
+};
 
 const Codebook = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -191,14 +210,15 @@ const Codebook = () => {
   const saveCodeDetails = async (codeId: string) => {
     if (!editState.label?.trim()) { toast.error("Code label cannot be empty"); return; }
     const theory = theories.find(t => t.id === editState.theory_id);
+    const theoryId = editState.theory_id || null;
     const { error } = await supabase.from("codes").update({
       label: editState.label.trim(),
       definition: editState.definition,
       inclusion_criteria: editState.inclusion_criteria,
       exclusion_criteria: editState.exclusion_criteria,
       example_quote: editState.example_quote,
-      origin: editState.origin || "researcher",
-      theory_id: editState.theory_id || null,
+      origin: getStoredOrigin(editState.origin, theoryId),
+      theory_id: theoryId,
       parent_code_id: editState.parent_code_id && editState.parent_code_id !== "none" ? editState.parent_code_id : null,
       color: theory ? theory.color : null,
     }).eq("id", codeId);
@@ -221,13 +241,14 @@ const Codebook = () => {
   const createCode = async () => {
     if (!newCodeLabel.trim() || !projectId) return;
     const theory = theories.find(t => t.id === newCodeTheoryId);
+    const theoryId = newCodeTheoryId || null;
     const { error } = await supabase.from("codes").insert({
       project_id: projectId,
       label: newCodeLabel.trim(),
       created_by: userId,
-      theory_id: newCodeTheoryId || null,
+      theory_id: theoryId,
       color: theory ? theory.color : null,
-      origin: newCodeOrigin || "researcher",
+      origin: getStoredOrigin(newCodeOrigin, theoryId),
       definition: newCodeDefinition || null,
       inclusion_criteria: newCodeInclusion || null,
       example_quote: newCodeExample || null,
@@ -699,9 +720,16 @@ const Codebook = () => {
                                 )}
                               </TableCell>
                               <TableCell>
-                                <Badge variant="secondary" className="text-[10px]">
-                                  {(code.origin || "researcher").replace("_", " ").toUpperCase()}
-                                </Badge>
+                                <div className="flex flex-wrap gap-1">
+                                  <Badge variant="secondary" className="text-[10px]">
+                                    {getOriginLabel(code)}
+                                  </Badge>
+                                  {code.created_via_ai && (
+                                    <Badge variant="outline" className="text-[10px] border-amber-500/60 text-amber-600">
+                                      AI-ASSISTED
+                                    </Badge>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell className="text-right text-xs text-muted-foreground tabular-nums">{appCounts[code.id] || 0}</TableCell>
                               <TableCell className="text-center">
